@@ -74,10 +74,7 @@ export default function Login() {
           </Button>
         </form>
         <div className="mt-5 rounded-md bg-muted/50 p-3 text-[11px] text-muted-foreground leading-relaxed" data-testid="text-login-hint">
-          <div className="font-medium text-foreground mb-1">Тестові облікові записи:</div>
-          <div>Людмила: ludmilabezugla@gmail.com / 123456</div>
-          <div>Юрій: yuriy.tsilyurik@semark.ua / 123456</div>
-          <div className="mt-2 text-muted-foreground/80">Сесія діє до 10 годин і зберігається лише в пам'яті — після оновлення сторінки потрібен повторний вхід.</div>
+          <div className="text-muted-foreground/80">Сесія діє до 10 годин і зберігається лише в пам'яті — після оновлення сторінки потрібен повторний вхід.</div>
         </div>
       </Card>
     </div>

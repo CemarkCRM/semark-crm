@@ -15,6 +15,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, asc } from "drizzle-orm";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { MIN_PASSWORD_LENGTH } from "@shared/access";
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const sqlite = new Database("data.db");
 sqlite.pragma("journal_mode = WAL");
@@ -223,6 +226,9 @@ export const storage = {
   },
   // Authenticate by email + password; returns sanitized user or null.
   login: (email: string, password: string): SafeUser | null => {
+    // In production short passwords (incl. the old demo default) are not accepted,
+    // so accounts still on a demo password must get a new one from a manager first.
+    if (IS_PRODUCTION && password.length < MIN_PASSWORD_LENGTH) return null;
     const user = db.select().from(users).where(eq(users.email, email)).get();
     if (!user || !verifyPassword(password, user.passwordHash)) return null;
     return sanitizeUser(user)!;
@@ -506,25 +512,27 @@ function seed() {
   ]).run();
 }
 
-seed();
+// Demo data is only for local development; a production database starts empty.
+if (!IS_PRODUCTION) seed();
 
-function ensureUser(fullName: string, role: string, email: string, phone?: string) {
-  const existing = sqlite.prepare("SELECT id FROM users WHERE full_name = ?").get(fullName) as { id: number } | undefined;
-  if (!existing) {
-    sqlite.prepare("INSERT INTO users (full_name, role, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)")
-      .run(fullName, role, email, phone ?? null, hashPassword("123456"));
+// First administrator (or password recovery) from the server environment:
+// ADMIN_EMAIL + ADMIN_PASSWORD create that user, or reset the password of an
+// existing user with that email. Remove ADMIN_PASSWORD from .env afterwards.
+function bootstrapAdmin() {
+  const email = process.env.ADMIN_EMAIL?.trim();
+  const password = process.env.ADMIN_PASSWORD;
+  if (!email || !password) return;
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    console.error(`ADMIN_PASSWORD коротший за ${MIN_PASSWORD_LENGTH} символів — адміністратора не створено.`);
+    return;
+  }
+  const existing = sqlite.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: number } | undefined;
+  if (existing) {
+    sqlite.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), existing.id);
   } else {
-    // Keep email/role in sync and guarantee a known login for the prototype.
-    sqlite.prepare("UPDATE users SET email = ?, role = ? WHERE id = ?").run(email, role, existing.id);
+    sqlite.prepare("INSERT INTO users (full_name, role, email, phone, password_hash) VALUES (?, ?, ?, ?, ?)")
+      .run(process.env.ADMIN_NAME?.trim() || "Адміністратор", "director", email, null, hashPassword(password));
   }
 }
 
-ensureUser("Цілюрик Юрій Вікторович", "director", "yuriy.tsilyurik@semark.ua", "+380000000001");
-ensureUser("Безугла Людмила Анатоліївна", "executive_director", "ludmilabezugla@gmail.com", "+380000000002");
-
-// Backfill: give any existing demo user a default password so the CRM is testable.
-for (const u of sqlite.prepare("SELECT id, password_hash FROM users").all() as Array<{ id: number; password_hash: string | null }>) {
-  if (!u.password_hash) {
-    sqlite.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword("123456"), u.id);
-  }
-}
+bootstrapAdmin();

@@ -10,7 +10,8 @@ import PageHeader from "@/components/PageHeader";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { roleLabels } from "@/lib/i18n";
-import { IMPORT_EXPORT_ALLOWED_NAMES, useCurrentUser } from "@/lib/currentUser";
+import { canImportExport as userCanImportExport, useCurrentUser } from "@/lib/currentUser";
+import { MIN_PASSWORD_LENGTH } from "@shared/access";
 import type { User } from "@shared/schema";
 
 const roleOrder = ["director", "executive_director", "engineer", "accountant", "sales", "admin"];
@@ -44,7 +45,7 @@ function PasswordResetForm({ userId }: { userId: number }) {
       <Button
         size="sm"
         variant="outline"
-        disabled={password.length < 4 || reset.isPending}
+        disabled={password.length < MIN_PASSWORD_LENGTH || reset.isPending}
         onClick={() => reset.mutate()}
         data-testid={`button-reset-password-${userId}`}
       >
@@ -134,7 +135,7 @@ export default function Settings() {
                   <td className="px-3 py-2 text-muted-foreground">{u.email}</td>
                   <td className="px-3 py-2 text-muted-foreground">{u.phone ?? "—"}</td>
                   <td className="px-3 py-2">
-                    {IMPORT_EXPORT_ALLOWED_NAMES.includes(u.fullName) ? (
+                    {userCanImportExport(u) ? (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">Імпорт/експорт дозволено</span>
                     ) : (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Без імпорту/експорту</span>
@@ -192,7 +193,7 @@ export default function Settings() {
           <Card className="p-4">
             <h2 className="font-semibold text-sm mb-2">Обмеження імпорту та експорту</h2>
             <p className="text-sm text-muted-foreground">
-              Завантажувати та вигружати клієнтів і пов’язані дані можуть тільки: Цілюрик Юрій Вікторович та Безугла Людмила Анатоліївна.
+              Завантажувати та вигружати клієнтів і пов’язані дані можуть тільки користувачі з ролями «Директор» і «Виконавчий директор».
             </p>
             <div className="mt-3 text-xs">
               Ваш поточний доступ: {canImportExport ? (

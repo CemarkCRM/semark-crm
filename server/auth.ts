@@ -1,9 +1,18 @@
 import type { Request, Response, NextFunction } from "express";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SafeUser } from "@shared/schema";
-import { IMPORT_EXPORT_ALLOWED_NAMES, MANAGER_ROLES } from "@shared/access";
+import { isImportExportAllowed, MANAGER_ROLES } from "@shared/access";
 
-// Signing secret. Stable across a process; in a real deployment set AUTH_SECRET.
+// Signing secret. In production AUTH_SECRET is required: without it every
+// restart would silently log everyone out, and a known value lets anyone forge tokens.
+const EXAMPLE_SECRET = "zaminit-na-svii-dovhyi-vypadkovyi-riadok";
+if (process.env.NODE_ENV === "production") {
+  const s = process.env.AUTH_SECRET;
+  if (!s || s === EXAMPLE_SECRET || s.length < 32) {
+    console.error("AUTH_SECRET не задано або він надто простий (потрібно щонайменше 32 символи). Сервер зупинено.");
+    process.exit(1);
+  }
+}
 const SECRET = process.env.AUTH_SECRET || randomBytes(32).toString("hex");
 
 const TOKEN_TTL_MS = 10 * 60 * 60 * 1000; // 10 hours
@@ -104,7 +113,7 @@ export function requireManager(req: Request, res: Response, next: NextFunction) 
 
 export function requireImportExportAccess(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: "Потрібна автентифікація" });
-  if (!IMPORT_EXPORT_ALLOWED_NAMES.includes(req.user.fullName)) {
+  if (!isImportExportAllowed(req.user.role)) {
     return res.status(403).json({ error: "Імпорт/експорт дозволено лише уповноваженим користувачам" });
   }
   next();

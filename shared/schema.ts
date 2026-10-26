@@ -1,6 +1,7 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { MIN_PASSWORD_LENGTH } from "./access";
 
 // ─── Users / roles ────────────────────────────────────────────────────────────
 // Roles: director | executive_director | engineer | accountant | sales | admin
@@ -14,7 +15,7 @@ export const users = sqliteTable("users", {
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, passwordHash: true }).extend({
-  password: z.string().min(4).optional(),
+  password: z.string().min(MIN_PASSWORD_LENGTH, `Пароль має містити щонайменше ${MIN_PASSWORD_LENGTH} символів`).optional(),
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
