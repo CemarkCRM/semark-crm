@@ -34,6 +34,32 @@ function withoutAudit(body: any) {
   return rest;
 }
 
+// Brute-force protection for login: after MAX_FAILED_LOGINS failures within
+// LOGIN_WINDOW_MS for the same IP+email (or 4x that for one IP), further
+// attempts are refused until the window passes. In memory; reset on restart.
+const MAX_FAILED_LOGINS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const failedLogins = new Map<string, { count: number; first: number }>();
+
+function loginBlocked(key: string, limit: number): boolean {
+  const entry = failedLogins.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    failedLogins.delete(key);
+    return false;
+  }
+  return entry.count >= limit;
+}
+
+function recordFailedLogin(key: string) {
+  const entry = failedLogins.get(key);
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    failedLogins.set(key, { count: 1, first: Date.now() });
+  } else {
+    entry.count++;
+  }
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   // Global API guard: everything under /api requires a valid token except the
   // public auth endpoints (login, logout). This protects all business routes
@@ -50,8 +76,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const email = String(req.body?.email ?? "").trim();
     const password = String(req.body?.password ?? "");
     if (!email || !password) return res.status(400).json({ error: "Email та пароль обов'язкові" });
+    const ipKey = `ip:${req.ip}`;
+    const userKey = `${ipKey}|${email.toLowerCase()}`;
+    if (loginBlocked(userKey, MAX_FAILED_LOGINS) || loginBlocked(ipKey, MAX_FAILED_LOGINS * 4)) {
+      return res.status(429).json({ error: "Забагато невдалих спроб входу. Спробуйте через 15 хвилин." });
+    }
     const user = storage.login(email, password);
-    if (!user) return res.status(401).json({ error: "Невірний email або пароль" });
+    if (!user) {
+      recordFailedLogin(userKey);
+      recordFailedLogin(ipKey);
+      return res.status(401).json({ error: "Невірний email або пароль" });
+    }
+    failedLogins.delete(userKey);
     const { token, payload } = createToken(user);
     res.json({ user, token, expiresAt: payload.exp });
   });

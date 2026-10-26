@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { User } from "@shared/schema";
 import {
-  IMPORT_EXPORT_ALLOWED_NAMES,
   isImportExportAllowed,
   isManagerRole,
 } from "@shared/access";
@@ -12,11 +11,10 @@ import {
   setUnauthorizedHandler,
 } from "@/lib/queryClient";
 
-export { IMPORT_EXPORT_ALLOWED_NAMES };
 export const ADMIN_ROLES = ["director", "executive_director", "admin"];
 
 export function canImportExport(user?: User | null) {
-  return isImportExportAllowed(user?.fullName);
+  return isImportExportAllowed(user?.role);
 }
 
 export function canManageUsers(user?: User | null) {
