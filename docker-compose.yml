@@ -1,0 +1,12 @@
+services:
+  crm:
+    build: .
+    container_name: semark-crm
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      # База даних лежить поза контейнером і не зникає при оновленні
+      - ./data.db:/app/data.db
