@@ -19,7 +19,8 @@ import { MIN_PASSWORD_LENGTH } from "@shared/access";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-const sqlite = new Database("data.db");
+// DB_PATH lets the hosting keep the database outside the public web folder.
+const sqlite = new Database(process.env.DB_PATH || "data.db");
 sqlite.pragma("journal_mode = WAL");
 
 // ─── Password hashing (Node crypto scrypt, salt stored with the hash) ─────────
