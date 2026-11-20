@@ -13,8 +13,37 @@ import { downloadExcel } from "@/lib/excelExport";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/lib/currentUser";
-import { Plus, Download, Upload, FileText } from "lucide-react";
+import { Plus, Download, Upload, FileText, Columns3 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Lead, User } from "@shared/schema";
+
+// Стовпці списку клієнтів, які можна вмикати/вимикати. «Клієнт» показується завжди.
+const COLUMNS = [
+  { key: "contact", label: "Компанія / контакт" },
+  { key: "city", label: "Місто" },
+  { key: "stage", label: "Стадія" },
+  { key: "source", label: "Джерело" },
+  { key: "notes", label: "Примітки" },
+  { key: "budget", label: "Бюджет" },
+  { key: "responsible", label: "Відповідальний" },
+  { key: "created", label: "Додано" },
+  { key: "updated", label: "Оновлено / ким" },
+] as const;
+type ColumnKey = (typeof COLUMNS)[number]["key"];
+const DEFAULT_HIDDEN: ColumnKey[] = ["budget", "responsible"];
+const COLUMNS_STORAGE_KEY = "leads.hiddenColumns";
+
+function loadHiddenColumns(): ColumnKey[] {
+  try {
+    const raw = localStorage.getItem(COLUMNS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed : DEFAULT_HIDDEN;
+  } catch {
+    return DEFAULT_HIDDEN;
+  }
+}
 
 export default function Leads() {
   const { toast } = useToast();
@@ -28,6 +57,14 @@ export default function Leads() {
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("created_desc");
+  const [hiddenColumns, setHiddenColumns] = useState<ColumnKey[]>(loadHiddenColumns);
+  const show = (key: ColumnKey) => !hiddenColumns.includes(key);
+  const toggleColumn = (key: ColumnKey, visible: boolean) => {
+    const next = visible ? hiddenColumns.filter((k) => k !== key) : [...hiddenColumns, key];
+    setHiddenColumns(next);
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(next)); } catch { /* приватний режим — просто не запам'ятовуємо */ }
+  };
+  const visibleColumnCount = 1 + COLUMNS.filter((c) => show(c.key)).length;
 
   const cities = useMemo(() => Array.from(new Set(leads.map((l) => l.city).filter(Boolean))) as string[], [leads]);
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
@@ -231,6 +268,28 @@ export default function Leads() {
               <SelectItem value="updated_desc">Нещодавно оновлені</SelectItem>
             </SelectContent>
           </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="justify-start" data-testid="button-leads-columns">
+                <Columns3 className="w-4 h-4 mr-2" />Стовпці
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Показувати стовпці</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {COLUMNS.map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.key}
+                  checked={show(c.key)}
+                  onCheckedChange={(v) => toggleColumn(c.key, v === true)}
+                  onSelect={(e) => e.preventDefault()}
+                  data-testid={`toggle-column-${c.key}`}
+                >
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </Card>
 
@@ -239,22 +298,23 @@ export default function Leads() {
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">Клієнт</th>
-              <th className="text-left px-3 py-2">Компанія / контакт</th>
-              <th className="text-left px-3 py-2">Місто</th>
-              <th className="text-left px-3 py-2">Стадія</th>
-              <th className="text-left px-3 py-2">Джерело</th>
-              <th className="text-right px-3 py-2">Бюджет</th>
-              <th className="text-left px-3 py-2">Відповідальний</th>
-              <th className="text-left px-3 py-2">Додано</th>
-              <th className="text-left px-3 py-2">Оновлено / ким</th>
+              {show("contact") && <th className="text-left px-3 py-2">Компанія / контакт</th>}
+              {show("city") && <th className="text-left px-3 py-2">Місто</th>}
+              {show("stage") && <th className="text-left px-3 py-2">Стадія</th>}
+              {show("source") && <th className="text-left px-3 py-2">Джерело</th>}
+              {show("notes") && <th className="text-left px-3 py-2">Примітки</th>}
+              {show("budget") && <th className="text-right px-3 py-2">Бюджет</th>}
+              {show("responsible") && <th className="text-left px-3 py-2">Відповідальний</th>}
+              {show("created") && <th className="text-left px-3 py-2">Додано</th>}
+              {show("updated") && <th className="text-left px-3 py-2">Оновлено / ким</th>}
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">Завантаження…</td></tr>
+              <tr><td colSpan={visibleColumnCount} className="text-center text-muted-foreground py-8">Завантаження…</td></tr>
             )}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">
+              <tr><td colSpan={visibleColumnCount} className="text-center text-muted-foreground py-8">
                 <FileText className="w-6 h-6 mx-auto mb-1 opacity-50" />
                 Клієнтів не знайдено
               </td></tr>
@@ -267,28 +327,32 @@ export default function Leads() {
                   </Link>
                   <div className="text-xs text-muted-foreground">#{l.id}</div>
                 </td>
-                <td className="px-3 py-2">
+                {show("contact") && <td className="px-3 py-2">
                   <div>{l.company ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">{l.contactName}</div>
                   <div className="text-xs text-muted-foreground">{l.contactPhone ?? "телефон не вказано"}</div>
                   <div className="text-xs text-muted-foreground">{l.contactEmail ?? "email не вказано"}</div>
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{l.city ?? "—"}</td>
-                <td className="px-3 py-2">
+                </td>}
+                {show("city") && <td className="px-3 py-2 text-muted-foreground">{l.city ?? "—"}</td>}
+                {show("stage") && <td className="px-3 py-2">
                   <span className={`text-[11px] px-2 py-0.5 rounded-full ${stageBadgeClass(l.stage)}`}>{stageLabels[l.stage] ?? l.stage}</span>
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{sourceLabels[l.source] ?? l.source}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatUAH(l.budget)}</td>
-                <td className="px-3 py-2 text-muted-foreground">
+                </td>}
+                {show("source") && <td className="px-3 py-2 text-muted-foreground">{sourceLabels[l.source] ?? l.source}</td>}
+                {show("notes") && <td className="px-3 py-2 text-xs text-muted-foreground max-w-xs" data-testid={`text-lead-notes-${l.id}`}>
+                  {/* Довгі примітки обрізаються до 3 рядків, повний текст — у підказці та в картці клієнта. */}
+                  <div className="line-clamp-3 whitespace-pre-line" title={l.notes ?? undefined}>{l.notes || "—"}</div>
+                </td>}
+                {show("budget") && <td className="px-3 py-2 text-right tabular-nums">{formatUAH(l.budget)}</td>}
+                {show("responsible") && <td className="px-3 py-2 text-muted-foreground">
                   {l.responsibleId ? (userMap.get(l.responsibleId)?.fullName ?? "—") : "—"}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs" data-testid={`text-lead-created-${l.id}`}>
+                </td>}
+                {show("created") && <td className="px-3 py-2 text-muted-foreground text-xs" data-testid={`text-lead-created-${l.id}`}>
                   {formatDateTime(l.createdAt)}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">
+                </td>}
+                {show("updated") && <td className="px-3 py-2 text-muted-foreground text-xs">
                   <div>{formatDateTime(l.updatedAt)}</div>
                   <div>{l.updatedById ? userMap.get(l.updatedById)?.fullName ?? "Адміністратор" : "Адміністратор"}</div>
-                </td>
+                </td>}
               </tr>
             ))}
           </tbody>
