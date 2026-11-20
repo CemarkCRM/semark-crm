@@ -238,11 +238,16 @@ export const storage = {
   // Leads
   listLeads: () => db.select().from(leads).orderBy(desc(leads.updatedAt)).all(),
   getLead: (id: number) => db.select().from(leads).where(eq(leads.id, id)).get(),
-  createLead: (data: InsertLead, actorId = DEFAULT_ACTOR_ID): Lead => {
-    const t = now();
-    const lead = db.insert(leads).values({ ...data, createdAt: t, updatedAt: t, updatedById: actorId }).returning().get() as Lead;
+  createLead: (
+    data: InsertLead,
+    actorId = DEFAULT_ACTOR_ID,
+    dates: { createdAt?: string; updatedAt?: string } = {},
+  ): Lead => {
+    const created = dates.createdAt || now();
+    const updated = dates.updatedAt || created;
+    const lead = db.insert(leads).values({ ...data, createdAt: created, updatedAt: updated, updatedById: actorId }).returning().get() as Lead;
     db.insert(events).values({
-      leadId: lead.id, type: "system", message: "Клієнта створено", authorId: actorId, createdAt: t,
+      leadId: lead.id, type: "system", message: "Клієнта створено", authorId: actorId, createdAt: created,
     }).run();
     return lead;
   },
