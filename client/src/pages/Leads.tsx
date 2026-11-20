@@ -109,6 +109,18 @@ export default function Leads() {
     const sourceInverse: Record<string, string> = {};
     for (const [k, v] of Object.entries(sourceLabels)) sourceInverse[v.toLowerCase()] = k;
 
+    // Дата з файлу: "2026-08-12 12:36:45" (місцевий час), "12.08.2026 12:36" або ISO → ISO-рядок.
+    const toISO = (raw?: string): string | undefined => {
+      const v = (raw || "").trim();
+      if (!v) return undefined;
+      const dmy = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+      const d = dmy
+        ? new Date(+dmy[3], +dmy[2] - 1, +dmy[1], +(dmy[4] || 0), +(dmy[5] || 0), +(dmy[6] || 0))
+        : new Date(/^\d{4}-\d{2}-\d{2} \d/.test(v) ? v.replace(" ", "T") : v);
+      return isNaN(d.getTime()) ? undefined : d.toISOString();
+    };
+    const userByName = new Map(users.map((u) => [u.fullName.trim().toLowerCase(), u.id]));
+
     const payload = rows.map((r) => {
       const stageRaw = (r.stage || r.stage_code || "new").trim();
       const sourceRaw = (r.source || "website").trim();
@@ -123,9 +135,13 @@ export default function Leads() {
         contactPhone: r.contactPhone || r.phone || r["Телефон"] || null,
         contactEmail: r.contactEmail || r.email || r["Email"] || null,
         city: r.city || r["Місто"] || null,
-        budget: r.budget ? Number(r.budget) : null,
-        responsibleId: r.responsibleId ? Number(r.responsibleId) : null,
-        notes: r.notes || null,
+        budget: (r.budget || r["Бюджет"]) ? Number(r.budget || r["Бюджет"]) || null : null,
+        responsibleId: r.responsibleId
+          ? Number(r.responsibleId)
+          : userByName.get((r.responsible || r["Відповідальний"] || "").trim().toLowerCase()) ?? null,
+        notes: r.notes || r["Нотатки"] || null,
+        createdAt: toISO(r.createdAt || r["Дата створення"]),
+        updatedAt: toISO(r.updatedAt || r["Оновлено"]),
       };
     });
     importMutation.mutate(payload);

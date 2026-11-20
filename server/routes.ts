@@ -271,8 +271,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ─── Import leads (restricted to import/export-authorized users) ─────────
   app.post("/api/leads/import", requireImportExportAccess, (req, res) => {
     try {
-      const rows = z.array(insertLeadSchema).parse(req.body);
-      const created = rows.map((r) => storage.createLead(r, actorId(req)));
+      // Імпорт зберігає дати зі старої CRM, щоб сортування за датою додавання не збивалося.
+      const isoDate = z.string().datetime().optional();
+      const rows = z.array(insertLeadSchema.extend({ createdAt: isoDate, updatedAt: isoDate })).parse(req.body);
+      const created = rows.map(({ createdAt, updatedAt, ...r }) =>
+        storage.createLead(r, actorId(req), { createdAt, updatedAt }));
       res.json({ count: created.length, created });
     } catch (e: any) { res.status(400).json({ error: e?.message }); }
   });
