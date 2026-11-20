@@ -27,6 +27,7 @@ export default function Leads() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("created_desc");
 
   const cities = useMemo(() => Array.from(new Set(leads.map((l) => l.city).filter(Boolean))) as string[], [leads]);
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
@@ -34,7 +35,7 @@ export default function Leads() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const companyQ = companyContactFilter.trim().toLowerCase();
-    return leads.filter((l) => {
+    const list = leads.filter((l) => {
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (cityFilter !== "all" && l.city !== cityFilter) return false;
@@ -48,7 +49,14 @@ export default function Leads() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter]);
+    // Дати зберігаються як ISO-рядки, тож порівняння рядків дає правильний порядок.
+    const [field, dir] = sortBy.split("_") as ["created" | "updated", "asc" | "desc"];
+    const key = field === "created" ? "createdAt" : "updatedAt";
+    return [...list].sort((a, b) => {
+      const cmp = (a[key] ?? "").localeCompare(b[key] ?? "") || a.id - b.id;
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, sortBy]);
 
   const exportRows = () => filtered.map((l) => ({
       id: l.id,
@@ -215,6 +223,14 @@ export default function Leads() {
               {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger data-testid="select-sort-leads"><SelectValue placeholder="Сортування" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_desc">Спершу нові (за датою додавання)</SelectItem>
+              <SelectItem value="created_asc">Спершу старі (за датою додавання)</SelectItem>
+              <SelectItem value="updated_desc">Нещодавно оновлені</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </Card>
 
@@ -229,15 +245,16 @@ export default function Leads() {
               <th className="text-left px-3 py-2">Джерело</th>
               <th className="text-right px-3 py-2">Бюджет</th>
               <th className="text-left px-3 py-2">Відповідальний</th>
+              <th className="text-left px-3 py-2">Додано</th>
               <th className="text-left px-3 py-2">Оновлено / ким</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Завантаження…</td></tr>
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">Завантаження…</td></tr>
             )}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="text-center text-muted-foreground py-8">
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">
                 <FileText className="w-6 h-6 mx-auto mb-1 opacity-50" />
                 Клієнтів не знайдено
               </td></tr>
@@ -264,6 +281,9 @@ export default function Leads() {
                 <td className="px-3 py-2 text-right tabular-nums">{formatUAH(l.budget)}</td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {l.responsibleId ? (userMap.get(l.responsibleId)?.fullName ?? "—") : "—"}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground text-xs" data-testid={`text-lead-created-${l.id}`}>
+                  {formatDateTime(l.createdAt)}
                 </td>
                 <td className="px-3 py-2 text-muted-foreground text-xs">
                   <div>{formatDateTime(l.updatedAt)}</div>
