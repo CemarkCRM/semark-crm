@@ -18,6 +18,8 @@ declare module "http" {
 
 app.use(
   express.json({
+    // Імпорт клієнтів надсилає всю таблицю одним запитом (сотні рядків), стандартних 100 КБ замало.
+    limit: "10mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
