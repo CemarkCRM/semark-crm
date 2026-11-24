@@ -219,7 +219,7 @@ export default function Companies() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Перенести контакти в компанії</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
-            <p>Основний контакт кожної угоди стане контактною особою його компанії. Буде додано: <b>{contactSync?.contactsToCreate ?? 0}</b>.</p>
+            <p>Основний контакт кожної угоди стане контактною особою її компанії. Буде додано: <b>{contactSync?.contactsToCreate ?? 0}</b>.</p>
             <p className="text-muted-foreground">Людей, які вже є в компанії (той самий ПІБ, телефон або email), не дублюємо. Самі угоди, дати й історія не змінюються.</p>
           </div>
           <DialogFooter>
