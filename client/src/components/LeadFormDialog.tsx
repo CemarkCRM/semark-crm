@@ -10,21 +10,22 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { stageLabels, stageOrder, sourceLabels, roleLabels } from "@/lib/i18n";
 import { useCurrentUser } from "@/lib/currentUser";
-import type { Lead, User } from "@shared/schema";
+import type { Company, Lead, User } from "@shared/schema";
 
 export default function LeadFormDialog({
-  trigger, lead, onSaved,
-}: { trigger: React.ReactNode; lead?: Lead; onSaved?: (lead: Lead) => void }) {
+  trigger, lead, onSaved, defaultCompany,
+}: { trigger: React.ReactNode; lead?: Lead; onSaved?: (lead: Lead) => void; defaultCompany?: string }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const { currentUserId } = useCurrentUser();
   const { data: users = [] } = useQuery<User[]>({ queryKey: ["/api/users"] });
+  const { data: companies = [] } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
 
   const [form, setForm] = useState({
     title: lead?.title ?? "",
     stage: lead?.stage ?? "new",
     source: lead?.source ?? "website",
-    company: lead?.company ?? "",
+    company: lead?.company ?? defaultCompany ?? "",
     contactName: lead?.contactName ?? "",
     contactPhone: lead?.contactPhone ?? "",
     contactEmail: lead?.contactEmail ?? "",
@@ -49,6 +50,7 @@ export default function LeadFormDialog({
     },
     onSuccess: (saved: Lead) => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads", saved.id, "full"] });
       toast({ title: lead ? "Клієнта оновлено" : "Клієнта створено" });
       setOpen(false);
@@ -89,7 +91,11 @@ export default function LeadFormDialog({
           </div>
           <div>
             <Label>Компанія</Label>
-            <Input data-testid="input-lead-company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+            {/* Підказки з наявних компаній: та сама назва прив'язує клієнта до існуючої компанії, нова — створює компанію. */}
+            <Input data-testid="input-lead-company" list="lead-company-options" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+            <datalist id="lead-company-options">
+              {companies.map((c) => <option key={c.id} value={c.name} />)}
+            </datalist>
           </div>
           <div>
             <Label>Місто</Label>

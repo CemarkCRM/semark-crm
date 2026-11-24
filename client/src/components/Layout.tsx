@@ -17,6 +17,7 @@ type NavItem = { href: string; label: string; icon: React.ComponentType<any>; te
 const nav: NavItem[] = [
   { href: "/",          label: "Дашборд",     icon: LayoutDashboard, testId: "link-nav-dashboard" },
   { href: "/leads",     label: "Клієнти",     icon: Users,           testId: "link-nav-leads" },
+  { href: "/companies", label: "Компанії",    icon: Building2,       testId: "link-nav-companies" },
   { href: "/tasks",     label: "Задачі",      icon: ListChecks,      testId: "link-nav-tasks" },
   { href: "/service",   label: "Сервіс",      icon: Wrench,          testId: "link-nav-service" },
   { href: "/rentals",   label: "Оренда",      icon: CalendarRange,   testId: "link-nav-rentals" },

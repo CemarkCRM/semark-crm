@@ -11,6 +11,8 @@ import { CurrentUserContext, useAuthProvider, useCurrentUser } from "@/lib/curre
 import Dashboard from "@/pages/Dashboard";
 import Leads from "@/pages/Leads";
 import LeadDetail from "@/pages/LeadDetail";
+import Companies from "@/pages/Companies";
+import CompanyDetail from "@/pages/CompanyDetail";
 import Tasks from "@/pages/Tasks";
 import Service from "@/pages/Service";
 import Rentals from "@/pages/Rentals";
@@ -24,6 +26,8 @@ function AppRouter() {
         <Route path="/" component={Dashboard} />
         <Route path="/leads" component={Leads} />
         <Route path="/leads/:id" component={LeadDetail} />
+        <Route path="/companies" component={Companies} />
+        <Route path="/companies/:id" component={CompanyDetail} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/service" component={Service} />
         <Route path="/rentals" component={Rentals} />

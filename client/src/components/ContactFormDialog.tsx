@@ -13,11 +13,13 @@ import type { Contact } from "@shared/schema";
 export default function ContactFormDialog({
   trigger,
   company,
+  companyId,
   contact,
   leadId,
 }: {
   trigger: React.ReactNode;
   company: string;
+  companyId?: number | null;
   contact?: Contact;
   leadId?: number;
 }) {
@@ -36,6 +38,7 @@ export default function ContactFormDialog({
     mutationFn: async () => {
       const payload = {
         company,
+        ...(companyId ? { companyId } : {}),
         fullName: form.fullName,
         phone: form.phone || null,
         email: form.email || null,
@@ -50,6 +53,7 @@ export default function ContactFormDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       if (leadId) queryClient.invalidateQueries({ queryKey: ["/api/leads", leadId, "full"] });
       toast({ title: contact ? "Контакт оновлено" : "Контакт додано до компанії" });
       setOpen(false);

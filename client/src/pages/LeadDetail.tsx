@@ -28,10 +28,11 @@ import {
   ShoppingCart, Wrench, CalendarRange, ListChecks, Activity, Trash2,
   UserPlus,
 } from "lucide-react";
-import type { Contact, Lead, User, Equipment, Sale, Repair, Rental, Task, Event } from "@shared/schema";
+import type { Company, Contact, Lead, User, Equipment, Sale, Repair, Rental, Task, Event } from "@shared/schema";
 
 type FullLead = {
   lead: Lead;
+  company: Company | null;
   contacts: Contact[];
   sales: Sale[];
   repairs: Repair[];
@@ -89,7 +90,7 @@ export default function LeadDetail() {
   if (isLoading) return <div className="text-muted-foreground">Завантаження…</div>;
   if (!data) return <div className="text-muted-foreground">Клієнта не знайдено</div>;
 
-  const { lead, contacts, sales, repairs, rentals, tasks, events } = data;
+  const { lead, company, contacts, sales, repairs, rentals, tasks, events } = data;
   const responsible = lead.responsibleId ? userMap.get(lead.responsibleId) : undefined;
   const filteredEvents = events.filter((ev) => matchesDateFilter(ev.createdAt, historyMode, historyDate));
   const filteredTasks = tasks.filter((t) => matchesDateFilter(t.dueDate || t.createdAt, taskMode, taskDate));
@@ -125,7 +126,9 @@ export default function LeadDetail() {
         <Card className="p-4 lg:col-span-1">
           <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Клієнт</div>
           <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground" /><span data-testid="text-lead-company">{lead.company ?? "—"}</span></div>
+            <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground" />{company
+              ? <Link href={`/companies/${company.id}`} className="text-primary hover:underline" data-testid="link-lead-company">{company.name}</Link>
+              : <span data-testid="text-lead-company">{lead.company ?? "—"}</span>}</div>
             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span data-testid="text-lead-city">{lead.city ?? "—"}</span></div>
             <div className="font-medium mt-2" data-testid="text-lead-contact">{lead.contactName}</div>
             {lead.contactPhone && <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-muted-foreground" /><a href={`tel:${lead.contactPhone}`} className="hover:underline" data-testid="link-lead-phone">{lead.contactPhone}</a></div>}
@@ -161,6 +164,7 @@ export default function LeadDetail() {
           {lead.company && (
             <ContactFormDialog
               company={lead.company}
+              companyId={lead.companyId}
               leadId={leadId}
               trigger={<Button size="sm" data-testid="button-add-company-contact"><UserPlus className="w-4 h-4 mr-1" />Додати контакт</Button>}
             />
@@ -204,6 +208,7 @@ export default function LeadDetail() {
                   </div>
                   <ContactFormDialog
                     company={c.company}
+                    companyId={c.companyId}
                     contact={c}
                     leadId={leadId}
                     trigger={<Button variant="ghost" size="sm" data-testid={`button-edit-contact-${c.id}`}><Pencil className="w-3 h-3 mr-1" />Редагувати</Button>}

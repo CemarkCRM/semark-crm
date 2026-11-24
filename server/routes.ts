@@ -6,7 +6,7 @@ import {
   insertUserSchema,
   insertLeadSchema, insertTaskSchema, insertEquipmentSchema,
   insertSaleSchema, insertRepairSchema, insertRentalSchema, insertEventSchema,
-  insertContactSchema,
+  insertContactSchema, insertCompanySchema,
 } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -143,6 +143,52 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.delete("/api/leads/:id", (req, res) => handle(res, () => storage.deleteLead(Number(req.params.id))));
 
+  // ─── Companies ───────────────────────────────────────────────────────────
+  app.get("/api/companies", (_req, res) => handle(res, () => storage.listCompanies()));
+  app.get("/api/companies/:id/full", (req, res) => handle(res, () => {
+    const id = Number(req.params.id);
+    const company = storage.getCompany(id);
+    if (!company) throw new Error("Компанію не знайдено");
+    const companyLeads = storage.listLeadsByCompanyId(id);
+    const leadIds = new Set(companyLeads.map((l) => l.id));
+    return {
+      company,
+      contacts: storage.listContactsByCompanyId(id),
+      leads: companyLeads,
+      sales: storage.listSales().filter((s) => leadIds.has(s.leadId)),
+      repairs: storage.listRepairs().filter((r) => leadIds.has(r.leadId)),
+      rentals: storage.listRentals().filter((r) => leadIds.has(r.leadId)),
+    };
+  }));
+  app.post("/api/companies", (req, res) => {
+    try {
+      const data = insertCompanySchema.parse(withoutAudit(req.body));
+      res.json(storage.createCompany(data, actorId(req)));
+    } catch (e: any) { res.status(400).json({ error: e?.message }); }
+  });
+  app.patch("/api/companies/:id", (req, res) => {
+    try {
+      const data = insertCompanySchema.partial().parse(withoutAudit(req.body));
+      const r = storage.updateCompany(Number(req.params.id), data, actorId(req));
+      if (!r) return res.status(404).json({ error: "Not found" });
+      res.json(r);
+    } catch (e: any) { res.status(400).json({ error: e?.message }); }
+  });
+  app.delete("/api/companies/:id", (req, res) => handle(res, () => storage.deleteCompany(Number(req.params.id))));
+  app.post("/api/companies/:id/merge", requireManager, (req, res) => {
+    try {
+      const targetId = z.number().int().positive().parse(req.body?.targetId);
+      res.json(storage.mergeCompanies(Number(req.params.id), targetId, actorId(req)));
+    } catch (e: any) { res.status(400).json({ error: e?.message }); }
+  });
+  // Creating companies from names already in clients: preview by default,
+  // applies only with { apply: true }. Directors only.
+  app.post("/api/companies/link-existing", requireImportExportAccess, (req, res) => {
+    try {
+      res.json(storage.linkExistingCompanies(req.body?.apply !== true, actorId(req)));
+    } catch (e: any) { res.status(400).json({ error: e?.message }); }
+  });
+
   // ─── Contacts inside companies ───────────────────────────────────────────
   app.get("/api/contacts", (_req, res) => handle(res, () => storage.listContacts()));
   app.get("/api/contacts/company/:company", (req, res) => handle(res, () => storage.listContactsByCompany(decodeURIComponent(req.params.company))));
@@ -169,7 +215,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!lead) throw new Error("Лід не знайдено");
       return {
         lead,
-        contacts: lead.company ? storage.listContactsByCompany(lead.company) : [],
+        company: lead.companyId ? storage.getCompany(lead.companyId) ?? null : null,
+        contacts: lead.companyId
+          ? storage.listContactsByCompanyId(lead.companyId)
+          : lead.company ? storage.listContactsByCompany(lead.company) : [],
         sales: storage.listSalesByLead(id),
       repairs: storage.listRepairsByLead(id),
       rentals: storage.listRentalsByLead(id),
