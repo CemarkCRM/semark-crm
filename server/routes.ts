@@ -7,6 +7,7 @@ import {
   insertLeadSchema, insertTaskSchema, insertEquipmentSchema,
   insertSaleSchema, insertRepairSchema, insertRentalSchema, insertEventSchema,
   insertContactSchema, insertCompanySchema,
+  EQUIPMENT_TYPES, PRICE_STATUSES,
 } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -259,6 +260,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = insertEquipmentSchema.partial().parse(withoutAudit(req.body));
       res.json(storage.updateEquipment(Number(req.params.id), data, actorId(req)));
+    } catch (e: any) { res.status(400).json({ error: e?.message }); }
+  });
+  // Каталог з цінами (Excel Продажів). dryRun: true — лише підрахунок, без змін у базі.
+  app.post("/api/equipment/catalog-import", requireImportExportAccess, (req, res) => {
+    try {
+      const str = z.string().trim().min(1).nullable();
+      const int = z.number().int().nonnegative();
+      const row = z.object({
+        brand: str, model: z.string().trim().min(1), name: z.string().trim().min(1),
+        type: z.enum(EQUIPMENT_TYPES), powerW: str, workField: str, sourceInternal: str, execution: str,
+        price: int, priceVat: int.nullable(), priceStatus: z.enum(PRICE_STATUSES),
+        priceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(), availability: str,
+        serial: str, rentalDayPrice: int.nullable(), notes: str,
+      });
+      const body = z.object({ dryRun: z.boolean(), rows: z.array(row).min(1).max(5000) }).parse(req.body);
+      res.json(storage.importCatalog(body.rows, actorId(req), body.dryRun));
     } catch (e: any) { res.status(400).json({ error: e?.message }); }
   });
   app.delete("/api/equipment/:id", (req, res) => handle(res, () => storage.deleteEquipment(Number(req.params.id))));

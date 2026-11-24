@@ -109,15 +109,30 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
 
 // ─── Equipment (catalog/inventory) ────────────────────────────────────────────
-// type: laser | fiber | co2 | marker | accessory
+// type: see EQUIPMENT_TYPES below (9 catalog types). Old keys
+// (laser | fiber | co2 | marker | accessory) stay readable until each record
+// gets a new type by hand.
+// kind: catalog = model in the price catalog (no serial number);
+//       unit    = a specific machine with a serial number (stock, demo, rental).
 // status (for rental inventory): available | rented | maintenance
 export const equipment = sqliteTable("equipment", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   model: text("model").notNull(),
   type: text("type").notNull(),
+  kind: text("kind").notNull().default("unit"),
+  catalogId: integer("catalog_id"), // unit → its model in the catalog
+  brand: text("brand"),
+  powerW: text("power_w"), // text: the price list has ranges like "60–70"
+  workField: text("work_field"),
+  sourceInternal: text("source_internal"), // internal only: never in КП or client documents
+  execution: text("execution"),
   serial: text("serial"),
-  price: integer("price").notNull(), // UAH list price
+  price: integer("price").notNull(), // UAH sale price without VAT (0 when "за запитом")
+  priceVat: integer("price_vat"), // UAH with VAT
+  priceStatus: text("price_status"), // approved | clarify | on_request
+  priceDate: text("price_date"), // YYYY-MM-DD
+  availability: text("availability"),
   rentalDayPrice: integer("rental_day_price"), // UAH/day
   status: text("status").notNull().default("available"),
   notes: text("notes"),
@@ -125,7 +140,18 @@ export const equipment = sqliteTable("equipment", {
   updatedById: integer("updated_by_id"),
 });
 
-export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, updatedAt: true, updatedById: true });
+export const EQUIPMENT_TYPES = [
+  "fiber_marker", "mopa_marker", "uv_marker", "co2_marker", "co2_cutter",
+  "laser_cleaning", "dot_peen", "option", "consumable",
+] as const;
+export const EQUIPMENT_KINDS = ["catalog", "unit"] as const;
+export const PRICE_STATUSES = ["approved", "clarify", "on_request"] as const;
+
+export const insertEquipmentSchema = createInsertSchema(equipment, {
+  kind: z.enum(EQUIPMENT_KINDS).optional(),
+  priceStatus: z.enum(PRICE_STATUSES).nullable().optional(),
+  priceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+}).omit({ id: true, updatedAt: true, updatedById: true });
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
 export type Equipment = typeof equipment.$inferSelect;
 

@@ -87,7 +87,7 @@ export default function RentalFormDialog({
               }}
             >
               <SelectTrigger data-testid="select-rental-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
-              <SelectContent>{equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.name} — {e.model}</SelectItem>)}</SelectContent>
+              <SelectContent>{equipment.filter((e) => e.kind !== "catalog" || String(e.id) === form.equipmentId).map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
