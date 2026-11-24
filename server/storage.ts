@@ -416,7 +416,7 @@ export const storage = {
   deleteCompany: (id: number) => {
     const linked = db.select().from(leads).where(eq(leads.companyId, id)).all().length
       + db.select().from(contacts).where(eq(contacts.companyId, id)).all().length;
-    if (linked > 0) throw new Error("У компанії є клієнти або контакти. Спершу перенесіть їх або об'єднайте компанію з іншою.");
+    if (linked > 0) throw new Error("У компанії є угоди або контакти. Спершу перенесіть їх або об'єднайте компанію з іншою.");
     return db.delete(companies).where(eq(companies.id, id)).run();
   },
   // Moves all clients and contacts of `sourceId` into `targetId`, then removes the source.
@@ -558,7 +558,7 @@ export const storage = {
     data = resolveCompanyLink(data, actorId, now(), { city: data.city ?? null, responsibleId: data.responsibleId ?? null });
     const lead = db.insert(leads).values({ ...data, createdAt: created, updatedAt: updated, updatedById: actorId }).returning().get() as Lead;
     db.insert(events).values({
-      leadId: lead.id, type: "system", message: "Клієнта створено", authorId: actorId, createdAt: created,
+      leadId: lead.id, type: "system", message: "Угоду створено", authorId: actorId, createdAt: created,
     }).run();
     addLeadContactToCompany(lead, actorId, created);
     return lead;
@@ -579,7 +579,7 @@ export const storage = {
     db.insert(events).values({
       leadId: id,
       type: "system",
-      message: `Картку клієнта відредаговано: ${actorName(actorId)}`,
+      message: `Картку угоди відредаговано: ${actorName(actorId)}`,
       authorId: actorId,
       createdAt: t,
     }).run();

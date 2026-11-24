@@ -70,9 +70,9 @@ export default function RentalFormDialog({
         <div className="grid grid-cols-2 gap-3">
           {!leadId && (
             <div className="col-span-2">
-              <Label>Клієнт</Label>
+              <Label>Угода</Label>
               <Select value={form.leadId} onValueChange={(v) => setForm({ ...form, leadId: v })}>
-                <SelectTrigger data-testid="select-rental-lead"><SelectValue placeholder="Оберіть клієнта" /></SelectTrigger>
+                <SelectTrigger data-testid="select-rental-lead"><SelectValue placeholder="Оберіть угоду" /></SelectTrigger>
                 <SelectContent>{leads.map((l) => <SelectItem key={l.id} value={String(l.id)}>{l.title} — {l.company ?? l.contactName}</SelectItem>)}</SelectContent>
               </Select>
             </div>

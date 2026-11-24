@@ -106,11 +106,11 @@ export default function TaskFormDialog({
           </div>
           {!leadId && (
             <div className="col-span-2">
-              <Label>Пов'язаний клієнт (необов'язково)</Label>
+              <Label>Пов'язана угода (необов'язково)</Label>
               <Select value={form.leadId} onValueChange={(v) => setForm({ ...form, leadId: v })}>
-                <SelectTrigger data-testid="select-task-lead"><SelectValue placeholder="Без клієнта" /></SelectTrigger>
+                <SelectTrigger data-testid="select-task-lead"><SelectValue placeholder="Без угоди" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">Без клієнта</SelectItem>
+                  <SelectItem value="0">Без угоди</SelectItem>
                   {leads.map((l) => <SelectItem key={l.id} value={String(l.id)}>{l.title} — {l.company ?? l.contactName}</SelectItem>)}
                 </SelectContent>
               </Select>

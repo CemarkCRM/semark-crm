@@ -188,17 +188,17 @@ export default function CompanyDetail() {
 
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="font-semibold text-sm">Клієнти / угоди ({leads.length})</div>
+          <div className="font-semibold text-sm">Угоди ({leads.length})</div>
           <LeadFormDialog
             defaultCompany={company.name}
-            trigger={<Button size="sm" data-testid="button-company-new-lead"><Plus className="w-4 h-4 mr-1" />Новий клієнт</Button>}
+            trigger={<Button size="sm" data-testid="button-company-new-lead"><Plus className="w-4 h-4 mr-1" />Нова угода</Button>}
           />
         </div>
-        {leads.length === 0 ? <div className="text-sm text-muted-foreground">Клієнтів ще немає</div> : (
+        {leads.length === 0 ? <div className="text-sm text-muted-foreground">Угод ще немає</div> : (
           <table className="w-full text-sm">
             <thead className="text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="text-left py-1">Клієнт</th>
+                <th className="text-left py-1">Угода</th>
                 <th className="text-left py-1">Основний контакт</th>
                 <th className="text-left py-1">Стадія</th>
                 <th className="text-right py-1">Бюджет</th>
@@ -255,7 +255,7 @@ export default function CompanyDetail() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Об'єднати компанію</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
-            <p>Усі клієнти й контакти компанії «{company.name}» перейдуть до вибраної компанії, а ця картка зникне. Порожні поля вибраної компанії заповняться з цієї.</p>
+            <p>Усі угоди й контакти компанії «{company.name}» перейдуть до вибраної компанії, а ця картка зникне. Порожні поля вибраної компанії заповняться з цієї.</p>
             <div>
               <Label>Об'єднати з</Label>
               <Select value={mergeTarget} onValueChange={setMergeTarget}>

@@ -52,7 +52,7 @@ export default function LeadFormDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads", saved.id, "full"] });
-      toast({ title: lead ? "Клієнта оновлено" : "Клієнта створено" });
+      toast({ title: lead ? "Угоду оновлено" : "Угоду створено" });
       setOpen(false);
       onSaved?.(saved);
     },
@@ -64,11 +64,11 @@ export default function LeadFormDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{lead ? "Редагувати клієнта" : "Новий клієнт"}</DialogTitle>
+          <DialogTitle>{lead ? "Редагувати угоду" : "Нова угода"}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <Label>Назва клієнта / запиту</Label>
+            <Label>Назва угоди / запиту</Label>
             <Input data-testid="input-lead-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div>

@@ -106,7 +106,7 @@ export default function Service() {
 
       <Card className="p-3 mb-4">
         <div className="grid md:grid-cols-3 gap-2">
-          <Input className="md:col-span-2" placeholder="Пошук: клієнт, обладнання, причина…" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-service-search" />
+          <Input className="md:col-span-2" placeholder="Пошук: угода, обладнання, причина…" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-service-search" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger data-testid="select-filter-service-status"><SelectValue placeholder="Статус" /></SelectTrigger>
             <SelectContent>
@@ -131,7 +131,7 @@ export default function Service() {
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">#</th>
-              <th className="text-left px-3 py-2">Клієнт</th>
+              <th className="text-left px-3 py-2">Угода</th>
               <th className="text-left px-3 py-2">Обладнання</th>
               <th className="text-left px-3 py-2">Куплено / ціна</th>
               <th className="text-left px-3 py-2">Прийнято</th>

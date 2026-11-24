@@ -193,7 +193,7 @@ export default function Settings() {
           <Card className="p-4">
             <h2 className="font-semibold text-sm mb-2">Обмеження імпорту та експорту</h2>
             <p className="text-sm text-muted-foreground">
-              Завантажувати та вигружати клієнтів і пов’язані дані можуть тільки користувачі з ролями «Директор» і «Виконавчий директор».
+              Завантажувати та вигружати угоди, компанії і пов’язані дані можуть тільки користувачі з ролями «Директор» і «Виконавчий директор».
             </p>
             <div className="mt-3 text-xs">
               Ваш поточний доступ: {canImportExport ? (

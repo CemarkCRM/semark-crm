@@ -103,7 +103,7 @@ export default function Tasks() {
     <div>
       <PageHeader
         title="Задачі"
-        subtitle="Призначення задач співробітникам по ролях та клієнтах"
+        subtitle="Призначення задач співробітникам по ролях та угодах"
         actions={
           <>
             <Button variant="outline" onClick={exportCSV} data-testid="button-export-tasks">
@@ -179,7 +179,7 @@ export default function Tasks() {
             <tr>
               <th className="text-left px-3 py-2 w-8"></th>
               <th className="text-left px-3 py-2">Задача</th>
-              <th className="text-left px-3 py-2">Клієнт</th>
+              <th className="text-left px-3 py-2">Угода</th>
               <th className="text-left px-3 py-2">Виконавець</th>
               <th className="text-left px-3 py-2">Дедлайн</th>
               <th className="text-left px-3 py-2">Пріоритет</th>

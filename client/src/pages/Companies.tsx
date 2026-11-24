@@ -87,7 +87,7 @@ export default function Companies() {
       "Телефон компанії": c.phone ?? "",
       "Email компанії": c.email ?? "",
       "Відповідальний": c.responsibleId ? userMap.get(c.responsibleId)?.fullName ?? "" : "",
-      "Кількість клієнтів / угод": companyLeads.length,
+      "Кількість угод": companyLeads.length,
       "Контактні особи": people.join("; "),
       "Примітки": c.notes ?? "",
       "Створено": c.createdAt,
@@ -137,12 +137,12 @@ export default function Companies() {
     <div>
       <PageHeader
         title="Компанії"
-        subtitle="Компанії клієнтів, їхні контактні особи та угоди"
+        subtitle="Компанії, їхні контактні особи та угоди"
         actions={
           <>
             {canImportExport && unlinkedWithName > 0 && (
               <Button variant="outline" onClick={() => linkMutation.mutate(false)} disabled={linkMutation.isPending} data-testid="button-link-companies">
-                <Link2 className="w-4 h-4 mr-2" />Створити компанії з клієнтів ({unlinkedWithName})
+                <Link2 className="w-4 h-4 mr-2" />Створити компанії з угод ({unlinkedWithName})
               </Button>
             )}
             {canImportExport && unlinkedWithName === 0 && (contactSync?.contactsToCreate ?? 0) > 0 && (
@@ -177,7 +177,7 @@ export default function Companies() {
               <th className="text-left px-3 py-2">Компанія</th>
               <th className="text-left px-3 py-2">Місто</th>
               <th className="text-left px-3 py-2">Контактні особи</th>
-              <th className="text-right px-3 py-2">Клієнтів / угод</th>
+              <th className="text-right px-3 py-2">Угод</th>
               <th className="text-left px-3 py-2">Відповідальний</th>
               <th className="text-left px-3 py-2">Оновлено</th>
             </tr>
@@ -219,8 +219,8 @@ export default function Companies() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Перенести контакти в компанії</DialogTitle></DialogHeader>
           <div className="space-y-2 text-sm">
-            <p>Основний контакт кожного клієнта стане контактною особою його компанії. Буде додано: <b>{contactSync?.contactsToCreate ?? 0}</b>.</p>
-            <p className="text-muted-foreground">Людей, які вже є в компанії (той самий ПІБ, телефон або email), не дублюємо. Самі клієнти, дати й історія не змінюються.</p>
+            <p>Основний контакт кожної угоди стане контактною особою його компанії. Буде додано: <b>{contactSync?.contactsToCreate ?? 0}</b>.</p>
+            <p className="text-muted-foreground">Людей, які вже є в компанії (той самий ПІБ, телефон або email), не дублюємо. Самі угоди, дати й історія не змінюються.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSyncOpen(false)}>Скасувати</Button>
@@ -234,19 +234,19 @@ export default function Companies() {
       <Dialog open={!!report} onOpenChange={(v) => { if (!v) setReport(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{report?.applied ? "Готово" : "Створити компанії з наявних клієнтів"}</DialogTitle>
+            <DialogTitle>{report?.applied ? "Готово" : "Створити компанії з наявних угод"}</DialogTitle>
           </DialogHeader>
           {report && (
             <div className="space-y-3 text-sm">
               <div>
                 {report.applied ? "Зроблено" : "Буде зроблено"}: нових компаній {report.companiesToCreate}
                 {report.existingCompaniesUsed > 0 && `, наявних використано ${report.existingCompaniesUsed}`};
-                прив'язано клієнтів {report.leadsToLink}, контактів {report.contactsToLink}.
-                Клієнтів без назви компанії: {report.leadsWithoutCompany} (лишаються як є).
+                прив'язано угод {report.leadsToLink}, контактів {report.contactsToLink}.
+                Угод без назви компанії: {report.leadsWithoutCompany} (лишаються як є).
               </div>
               <div className="text-muted-foreground">
                 Однакові назви (без різниці у великих літерах, пробілах і лапках) стають однією компанією.
-                Назви клієнтів, дати й історія не змінюються.
+                Назви угод, дати й історія не змінюються.
               </div>
               {report.possibleDuplicates.length > 0 && (
                 <div>
