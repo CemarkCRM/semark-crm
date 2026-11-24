@@ -299,6 +299,48 @@ function resolveCompanyLink<T extends { company?: string | null; companyId?: num
   return out;
 }
 
+// ─── Main contact of a client → contact person of its company ────────────────
+// A client (deal) keeps one main contact inline. The same person should also be
+// a contact person of the company, without duplicates.
+const PLACEHOLDER_CONTACTS = new Set(["", "контакт", "-", "—"]);
+const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "").slice(-9);
+
+function sameContact(c: Contact, name: string, phone?: string | null, email?: string | null): boolean {
+  if (companyKey(c.fullName) === companyKey(name)) return true;
+  const p = digits(phone);
+  if (p.length >= 9 && digits(c.phone) === p) return true;
+  const e = (email ?? "").trim().toLowerCase();
+  return !!e && (c.email ?? "").trim().toLowerCase() === e;
+}
+
+// Returns true when the lead's main contact is a real person not yet among the company's contacts.
+function leadContactMissing(lead: Lead, companyContacts: Contact[]): boolean {
+  if (!lead.companyId) return false;
+  if (PLACEHOLDER_CONTACTS.has(companyKey(lead.contactName))) return false;
+  return !companyContacts.some((c) => sameContact(c, lead.contactName, lead.contactPhone, lead.contactEmail));
+}
+
+function addLeadContactToCompany(lead: Lead, actorId: number, t: string): Contact | undefined {
+  if (!lead.companyId) return undefined;
+  const companyContacts = db.select().from(contacts).where(eq(contacts.companyId, lead.companyId)).all();
+  if (!leadContactMissing(lead, companyContacts)) return undefined;
+  const contact = db.insert(contacts).values({
+    company: lead.company ?? "",
+    companyId: lead.companyId,
+    fullName: lead.contactName.trim(),
+    phone: lead.contactPhone ?? null,
+    email: lead.contactEmail ?? null,
+    createdAt: t, updatedAt: t, updatedById: actorId,
+  }).returning().get() as Contact;
+  db.insert(events).values({
+    leadId: lead.id, type: "system", contactId: contact.id, authorId: actorId, createdAt: t,
+    message: `Контакт ${contact.fullName} додано до контактних осіб компанії ${contact.company}`,
+  }).run();
+  return contact;
+}
+
+export type ContactSyncReport = { contactsToCreate: number; leadsWithoutCompany: number; applied: boolean };
+
 export type CompanyLinkReport = {
   companiesToCreate: number;
   existingCompaniesUsed: number;
@@ -374,7 +416,7 @@ export const storage = {
   deleteCompany: (id: number) => {
     const linked = db.select().from(leads).where(eq(leads.companyId, id)).all().length
       + db.select().from(contacts).where(eq(contacts.companyId, id)).all().length;
-    if (linked > 0) throw new Error("У компанії є клієнти або контакти. Спершу перенесіть їх або об'єднайте компанію з іншою.");
+    if (linked > 0) throw new Error("У компанії є угоди або контакти. Спершу перенесіть їх або об'єднайте компанію з іншою.");
     return db.delete(companies).where(eq(companies.id, id)).run();
   },
   // Moves all clients and contacts of `sourceId` into `targetId`, then removes the source.
@@ -476,6 +518,33 @@ export const storage = {
     return { ...report, applied: true };
   },
 
+  // Adds the main contact of every client to its company's contact persons (no duplicates).
+  // dryRun=true only counts; nothing changes.
+  syncLeadContacts: (dryRun: boolean, actorId = DEFAULT_ACTOR_ID): ContactSyncReport => {
+    const allLeads = db.select().from(leads).orderBy(asc(leads.createdAt)).all();
+    const byCompany = new Map<number, Contact[]>();
+    for (const c of db.select().from(contacts).all()) {
+      if (c.companyId) byCompany.set(c.companyId, [...(byCompany.get(c.companyId) ?? []), c]);
+    }
+    let contactsToCreate = 0;
+    const toCreate: Lead[] = [];
+    for (const l of allLeads) {
+      if (!l.companyId) continue;
+      const list = byCompany.get(l.companyId) ?? [];
+      if (!leadContactMissing(l, list)) continue;
+      contactsToCreate++;
+      toCreate.push(l);
+      // Count the same person in two deals only once.
+      list.push({ fullName: l.contactName, phone: l.contactPhone, email: l.contactEmail } as Contact);
+      byCompany.set(l.companyId, list);
+    }
+    const report = { contactsToCreate, leadsWithoutCompany: allLeads.filter((l) => !l.companyId).length, applied: false };
+    if (dryRun) return report;
+    const t = now();
+    sqlite.transaction(() => { for (const l of toCreate) addLeadContactToCompany(l, actorId, t); })();
+    return { ...report, applied: true };
+  },
+
   // Leads
   listLeads: () => db.select().from(leads).orderBy(desc(leads.updatedAt)).all(),
   getLead: (id: number) => db.select().from(leads).where(eq(leads.id, id)).get(),
@@ -489,8 +558,9 @@ export const storage = {
     data = resolveCompanyLink(data, actorId, now(), { city: data.city ?? null, responsibleId: data.responsibleId ?? null });
     const lead = db.insert(leads).values({ ...data, createdAt: created, updatedAt: updated, updatedById: actorId }).returning().get() as Lead;
     db.insert(events).values({
-      leadId: lead.id, type: "system", message: "Клієнта створено", authorId: actorId, createdAt: created,
+      leadId: lead.id, type: "system", message: "Угоду створено", authorId: actorId, createdAt: created,
     }).run();
+    addLeadContactToCompany(lead, actorId, created);
     return lead;
   },
   updateLead: (id: number, data: Partial<InsertLead>, actorId = DEFAULT_ACTOR_ID): Lead | undefined => {
@@ -509,10 +579,11 @@ export const storage = {
     db.insert(events).values({
       leadId: id,
       type: "system",
-      message: `Картку клієнта відредаговано: ${actorName(actorId)}`,
+      message: `Картку угоди відредаговано: ${actorName(actorId)}`,
       authorId: actorId,
       createdAt: t,
     }).run();
+    if (updated) addLeadContactToCompany(updated as Lead, actorId, t);
     return updated;
   },
   deleteLead: (id: number) => db.delete(leads).where(eq(leads.id, id)).run(),

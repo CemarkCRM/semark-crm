@@ -16,7 +16,7 @@ type NavItem = { href: string; label: string; icon: React.ComponentType<any>; te
 
 const nav: NavItem[] = [
   { href: "/",          label: "Дашборд",     icon: LayoutDashboard, testId: "link-nav-dashboard" },
-  { href: "/leads",     label: "Клієнти",     icon: Users,           testId: "link-nav-leads" },
+  { href: "/leads",     label: "Угоди",       icon: Users,           testId: "link-nav-leads" },
   { href: "/companies", label: "Компанії",    icon: Building2,       testId: "link-nav-companies" },
   { href: "/tasks",     label: "Задачі",      icon: ListChecks,      testId: "link-nav-tasks" },
   { href: "/service",   label: "Сервіс",      icon: Wrench,          testId: "link-nav-service" },
@@ -113,7 +113,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 150)}
               onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-              placeholder="Глобальний пошук: клієнт, задача, обладнання…"
+              placeholder="Глобальний пошук: угода, задача, обладнання…"
               className="pl-9 h-9"
             />
             {open && query.trim() && (
@@ -123,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 )}
                 {results.leads.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-2 py-1 text-[11px] uppercase text-muted-foreground">Клієнти</div>
+                    <div className="px-2 py-1 text-[11px] uppercase text-muted-foreground">Угоди</div>
                     {results.leads.map((l) => (
                       <Link key={l.id} href={`/leads/${l.id}`} className="block px-2 py-1.5 rounded hover-elevate" data-testid={`link-search-lead-${l.id}`}>
                         <div className="font-medium">{l.title}</div>

@@ -56,6 +56,7 @@ export default function Leads() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("created_desc");
   const [hiddenColumns, setHiddenColumns] = useState<ColumnKey[]>(loadHiddenColumns);
   const show = (key: ColumnKey) => !hiddenColumns.includes(key);
@@ -76,6 +77,9 @@ export default function Leads() {
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (cityFilter !== "all" && l.city !== cityFilter) return false;
+      // «Без компанії»: приватні особи та ті, чия компанія ще невідома.
+      if (companyFilter === "none" && (l.companyId || l.company?.trim())) return false;
+      if (companyFilter === "with" && !l.companyId) return false;
       if (companyQ) {
         const companyMatch = (l.company ?? "").toLowerCase().startsWith(companyQ) || (l.company ?? "").toLowerCase().includes(companyQ);
         const contactMatch = [l.contactName, l.contactPhone, l.contactEmail].filter(Boolean).some((v) => String(v).toLowerCase().includes(companyQ));
@@ -93,7 +97,7 @@ export default function Leads() {
       const cmp = (a[key] ?? "").localeCompare(b[key] ?? "") || a.id - b.id;
       return dir === "asc" ? cmp : -cmp;
     });
-  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, sortBy]);
+  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, companyFilter, sortBy]);
 
   // Заголовки українською; ці ж назви стовпців розуміє імпорт CSV.
   const exportRows = () => filtered.map((l) => ({
@@ -122,11 +126,11 @@ export default function Leads() {
   const exportCSV = () => {
     if (!ensureImportExportAccess()) return;
     const rows = exportRows();
-    downloadCSV(`clients_${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    downloadCSV(`deals_${new Date().toISOString().slice(0, 10)}.csv`, rows);
   };
   const exportExcel = () => {
     if (!ensureImportExportAccess()) return;
-    downloadExcel(`clients_${new Date().toISOString().slice(0, 10)}.xls`, "Клієнти", exportRows());
+    downloadExcel(`deals_${new Date().toISOString().slice(0, 10)}.xls`, "Угоди", exportRows());
   };
 
   const importMutation = useMutation({
@@ -136,7 +140,7 @@ export default function Leads() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      toast({ title: "Імпорт завершено", description: `Створено клієнтів: ${data.count}` });
+      toast({ title: "Імпорт завершено", description: `Створено угод: ${data.count}` });
     },
     onError: (e: any) => toast({ variant: "destructive", title: "Помилка імпорту", description: e?.message }),
   });
@@ -196,8 +200,8 @@ export default function Leads() {
   return (
     <div>
       <PageHeader
-        title="Клієнти"
-        subtitle="Клієнтська база, контакти, історія та воронка продажів"
+        title="Угоди"
+        subtitle="Що і кому продаємо: стадії воронки, контакти, історія"
         actions={
           <>
             <label className="inline-flex">
@@ -220,7 +224,7 @@ export default function Leads() {
               <Download className="w-4 h-4 mr-2" />Excel
             </Button>
             <LeadFormDialog
-              trigger={<Button data-testid="button-new-lead"><Plus className="w-4 h-4 mr-2" />Новий клієнт</Button>}
+              trigger={<Button data-testid="button-new-lead"><Plus className="w-4 h-4 mr-2" />Нова угода</Button>}
             />
           </>
         }
@@ -252,6 +256,14 @@ export default function Leads() {
             <SelectContent>
               <SelectItem value="all">Усі джерела</SelectItem>
               {Object.entries(sourceLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger data-testid="select-filter-company"><SelectValue placeholder="Компанія" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">З компанією і без</SelectItem>
+              <SelectItem value="with">Лише з компанією</SelectItem>
+              <SelectItem value="none">Без компанії (приватні особи)</SelectItem>
             </SelectContent>
           </Select>
           <Select value={cityFilter} onValueChange={setCityFilter}>
@@ -298,7 +310,7 @@ export default function Leads() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="text-left px-3 py-2">Клієнт</th>
+              <th className="text-left px-3 py-2">Угода</th>
               {show("contact") && <th className="text-left px-3 py-2">Компанія / контакт</th>}
               {show("city") && <th className="text-left px-3 py-2">Місто</th>}
               {show("stage") && <th className="text-left px-3 py-2">Стадія</th>}
@@ -317,7 +329,7 @@ export default function Leads() {
             {!isLoading && filtered.length === 0 && (
               <tr><td colSpan={visibleColumnCount} className="text-center text-muted-foreground py-8">
                 <FileText className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                Клієнтів не знайдено
+                Угод не знайдено
               </td></tr>
             )}
             {filtered.map((l) => (

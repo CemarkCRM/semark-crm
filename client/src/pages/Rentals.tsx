@@ -101,7 +101,7 @@ export default function Rentals() {
 
       <Card className="p-3 mb-4">
         <div className="grid md:grid-cols-3 gap-2">
-          <Input className="md:col-span-2" placeholder="Пошук: клієнт, обладнання…" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-rentals-search" />
+          <Input className="md:col-span-2" placeholder="Пошук: угода, обладнання…" value={search} onChange={(e) => setSearch(e.target.value)} data-testid="input-rentals-search" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger data-testid="select-filter-rental-status"><SelectValue placeholder="Статус" /></SelectTrigger>
             <SelectContent>
@@ -126,7 +126,7 @@ export default function Rentals() {
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">#</th>
-              <th className="text-left px-3 py-2">Клієнт</th>
+              <th className="text-left px-3 py-2">Угода</th>
               <th className="text-left px-3 py-2">Обладнання</th>
               <th className="text-left px-3 py-2">Період</th>
               <th className="text-right px-3 py-2">Ціна/добу</th>

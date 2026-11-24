@@ -189,6 +189,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e?.message }); }
   });
 
+  // Main contacts of clients → contact persons of companies. GET = preview, POST = apply.
+  app.get("/api/contacts/sync-from-leads", requireImportExportAccess, (req, res) => handle(res, () => storage.syncLeadContacts(true, actorId(req))));
+  app.post("/api/contacts/sync-from-leads", requireImportExportAccess, (req, res) => handle(res, () => storage.syncLeadContacts(false, actorId(req))));
+
   // ─── Contacts inside companies ───────────────────────────────────────────
   app.get("/api/contacts", (_req, res) => handle(res, () => storage.listContacts()));
   app.get("/api/contacts/company/:company", (req, res) => handle(res, () => storage.listContactsByCompany(decodeURIComponent(req.params.company))));

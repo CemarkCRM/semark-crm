@@ -48,7 +48,7 @@ export default function Dashboard() {
       <PageHeader title="Дашборд" subtitle="Загальний огляд бізнесу ТОВ Семарк" />
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        <KPI testId="kpi-leads"   label="Активні клієнти" value={activeLeads.length}  icon={Users} />
+        <KPI testId="kpi-leads"   label="Активні угоди" value={activeLeads.length}  icon={Users} />
         <KPI testId="kpi-tasks"   label="Відкриті задачі" value={openTasks.length}  icon={ListChecks} />
         <KPI testId="kpi-repairs" label="Сервіс у роботі" value={activeRepairs.length} icon={Wrench} />
         <KPI testId="kpi-rentals" label="Оренди" value={activeRentals.length} icon={CalendarRange} />
@@ -58,11 +58,11 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-2 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-sm">Останні клієнти</h2>
-            <Link href="/leads" className="text-xs text-primary hover:underline" data-testid="link-all-leads">Усі клієнти →</Link>
+            <h2 className="font-semibold text-sm">Останні угоди</h2>
+            <Link href="/leads" className="text-xs text-primary hover:underline" data-testid="link-all-leads">Усі угоди →</Link>
           </div>
           <div className="space-y-1.5">
-            {recentLeads.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">Клієнтів немає</div>}
+            {recentLeads.length === 0 && <div className="text-sm text-muted-foreground py-6 text-center">Угод немає</div>}
             {recentLeads.map((l) => (
               <Link key={l.id} href={`/leads/${l.id}`} className="block p-2 rounded-md hover-elevate" data-testid={`row-recent-lead-${l.id}`}>
                 <div className="flex items-center justify-between gap-3">

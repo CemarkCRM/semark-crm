@@ -66,6 +66,22 @@ export default function CompanyDetail() {
   const responsible = company.responsibleId ? userMap.get(company.responsibleId) : undefined;
   const isEmpty = leads.length === 0 && contacts.length === 0;
 
+  // Main contacts of this company's clients that are not yet saved as contact persons
+  // (shown here so every person of the company is visible in one place).
+  const norm = (v?: string | null) => (v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const tel = (v?: string | null) => (v ?? "").replace(/\D/g, "").slice(-9);
+  const known: { name: string; phone: string; email: string }[] =
+    contacts.map((c) => ({ name: norm(c.fullName), phone: tel(c.phone), email: norm(c.email) }));
+  const leadContacts: { lead: Lead; name: string; phone?: string | null; email?: string | null }[] = [];
+  for (const l of leads) {
+    const n = norm(l.contactName);
+    if (!n || n === "контакт") continue;
+    const p = tel(l.contactPhone); const e = norm(l.contactEmail);
+    if (known.some((k) => k.name === n || (p.length >= 9 && k.phone === p) || (!!e && k.email === e))) continue;
+    known.push({ name: n, phone: p, email: e });
+    leadContacts.push({ lead: l, name: l.contactName, phone: l.contactPhone, email: l.contactEmail });
+  }
+
   const leadLink = (leadId: number) => {
     const l = leadMap.get(leadId);
     return <Link href={`/leads/${leadId}`} className="hover:underline">{l?.title ?? `#${leadId}`}</Link>;
@@ -125,14 +141,14 @@ export default function CompanyDetail() {
 
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="font-semibold text-sm">Контактні особи ({contacts.length})</div>
+          <div className="font-semibold text-sm">Контактні особи ({contacts.length + leadContacts.length})</div>
           <ContactFormDialog
             company={company.name}
             companyId={company.id}
             trigger={<Button size="sm" data-testid="button-add-company-contact"><UserPlus className="w-4 h-4 mr-1" />Додати контакт</Button>}
           />
         </div>
-        {contacts.length === 0 && <div className="text-sm text-muted-foreground">Окремих контактів ще немає. Основні контакти клієнтів показані нижче, у списку клієнтів.</div>}
+        {contacts.length + leadContacts.length === 0 && <div className="text-sm text-muted-foreground">Контактних осіб ще немає.</div>}
         <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-3">
           {contacts.map((c) => (
             <Card key={c.id} className="p-3" data-testid={`card-contact-${c.id}`}>
@@ -155,22 +171,34 @@ export default function CompanyDetail() {
               </div>
             </Card>
           ))}
+          {leadContacts.map((lc) => (
+            <Card key={`lead-${lc.lead.id}`} className="p-3 border-dashed" data-testid={`card-lead-contact-${lc.lead.id}`}>
+              <div className="font-medium">{lc.name}</div>
+              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                <div>{lc.phone || "телефон не вказано"}</div>
+                <div>{lc.email || "email не вказано"}</div>
+              </div>
+              <div className="text-xs mt-2 text-muted-foreground">
+                Основний контакт з <Link href={`/leads/${lc.lead.id}`} className="text-primary hover:underline">{lc.lead.title}</Link>
+              </div>
+            </Card>
+          ))}
         </div>
       </Card>
 
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="font-semibold text-sm">Клієнти / угоди ({leads.length})</div>
+          <div className="font-semibold text-sm">Угоди ({leads.length})</div>
           <LeadFormDialog
             defaultCompany={company.name}
-            trigger={<Button size="sm" data-testid="button-company-new-lead"><Plus className="w-4 h-4 mr-1" />Новий клієнт</Button>}
+            trigger={<Button size="sm" data-testid="button-company-new-lead"><Plus className="w-4 h-4 mr-1" />Нова угода</Button>}
           />
         </div>
-        {leads.length === 0 ? <div className="text-sm text-muted-foreground">Клієнтів ще немає</div> : (
+        {leads.length === 0 ? <div className="text-sm text-muted-foreground">Угод ще немає</div> : (
           <table className="w-full text-sm">
             <thead className="text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="text-left py-1">Клієнт</th>
+                <th className="text-left py-1">Угода</th>
                 <th className="text-left py-1">Основний контакт</th>
                 <th className="text-left py-1">Стадія</th>
                 <th className="text-right py-1">Бюджет</th>
@@ -227,7 +255,7 @@ export default function CompanyDetail() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Об'єднати компанію</DialogTitle></DialogHeader>
           <div className="space-y-3 text-sm">
-            <p>Усі клієнти й контакти компанії «{company.name}» перейдуть до вибраної компанії, а ця картка зникне. Порожні поля вибраної компанії заповняться з цієї.</p>
+            <p>Усі угоди й контакти компанії «{company.name}» перейдуть до вибраної компанії, а ця картка зникне. Порожні поля вибраної компанії заповняться з цієї.</p>
             <div>
               <Label>Об'єднати з</Label>
               <Select value={mergeTarget} onValueChange={setMergeTarget}>

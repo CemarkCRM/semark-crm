@@ -82,13 +82,13 @@ export default function LeadDetail() {
     mutationFn: async () => { await apiRequest("DELETE", `/api/leads/${leadId}`); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      toast({ title: "Клієнта видалено" });
+      toast({ title: "Угоду видалено" });
       setLocation("/leads");
     },
   });
 
   if (isLoading) return <div className="text-muted-foreground">Завантаження…</div>;
-  if (!data) return <div className="text-muted-foreground">Клієнта не знайдено</div>;
+  if (!data) return <div className="text-muted-foreground">Угоду не знайдено</div>;
 
   const { lead, company, contacts, sales, repairs, rentals, tasks, events } = data;
   const responsible = lead.responsibleId ? userMap.get(lead.responsibleId) : undefined;
@@ -102,20 +102,20 @@ export default function LeadDetail() {
     <div>
       <div className="mb-3">
         <Link href="/leads" className="text-xs text-muted-foreground hover:underline inline-flex items-center gap-1" data-testid="link-back-leads">
-          <ArrowLeft className="w-3 h-3" /> До списку клієнтів
+          <ArrowLeft className="w-3 h-3" /> До списку угод
         </Link>
       </div>
 
       <PageHeader
         title={lead.title}
-        subtitle={`Клієнт #${lead.id} · створено ${formatDate(lead.createdAt)} · оновлено ${formatDateTime(lead.updatedAt)} · редагував ${lead.updatedById ? userMap.get(lead.updatedById)?.fullName ?? "Адміністратор" : "Адміністратор"}`}
+        subtitle={`Угода #${lead.id} · створено ${formatDate(lead.createdAt)} · оновлено ${formatDateTime(lead.updatedAt)} · редагував ${lead.updatedById ? userMap.get(lead.updatedById)?.fullName ?? "Адміністратор" : "Адміністратор"}`}
         actions={
           <>
             <LeadFormDialog
               lead={lead}
               trigger={<Button variant="outline" data-testid="button-edit-lead"><Pencil className="w-4 h-4 mr-2" />Редагувати</Button>}
             />
-            <Button variant="outline" onClick={() => { if (confirm("Видалити клієнта безповоротно?")) deleteLead.mutate(); }} data-testid="button-delete-lead">
+            <Button variant="outline" onClick={() => { if (confirm("Видалити угоду безповоротно?")) deleteLead.mutate(); }} data-testid="button-delete-lead">
               <Trash2 className="w-4 h-4 mr-2" />Видалити
             </Button>
           </>
@@ -124,7 +124,7 @@ export default function LeadDetail() {
 
       <div className="grid lg:grid-cols-3 gap-4 mb-4">
         <Card className="p-4 lg:col-span-1">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Клієнт</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Компанія і контакт</div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2"><Building2 className="w-4 h-4 text-muted-foreground" />{company
               ? <Link href={`/companies/${company.id}`} className="text-primary hover:underline" data-testid="link-lead-company">{company.name}</Link>
@@ -171,7 +171,7 @@ export default function LeadDetail() {
           )}
         </div>
         {!lead.company && (
-          <div className="text-sm text-muted-foreground">Щоб додавати контакти без дублювання, спочатку вкажіть компанію в картці клієнта.</div>
+          <div className="text-sm text-muted-foreground">Щоб додавати контакти без дублювання, спочатку вкажіть компанію в картці угоди.</div>
         )}
         <div className="grid lg:grid-cols-2 gap-3">
           <Card className="p-3 border-dashed">
