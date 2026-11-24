@@ -13,7 +13,7 @@ import { formatDateTime } from "@/lib/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/lib/currentUser";
-import { Plus, Download, Building2, Link2 } from "lucide-react";
+import { Plus, Download, Building2, Link2, Users } from "lucide-react";
 import type { Company, Contact, Lead, User } from "@shared/schema";
 
 type LinkReport = {
@@ -102,6 +102,23 @@ export default function Companies() {
   };
   const stamp = () => new Date().toISOString().slice(0, 10);
 
+  const { data: contactSync } = useQuery<{ contactsToCreate: number; leadsWithoutCompany: number }>({
+    queryKey: ["/api/contacts/sync-from-leads"],
+    enabled: canImportExport,
+  });
+  const [syncOpen, setSyncOpen] = useState(false);
+  const syncMutation = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/contacts/sync-from-leads", {})).json() as Promise<{ contactsToCreate: number }>,
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts/sync-from-leads"] });
+      toast({ title: `Додано контактних осіб: ${r.contactsToCreate}` });
+      setSyncOpen(false);
+    },
+    onError: (e: any) => toast({ variant: "destructive", title: "Помилка", description: e?.message }),
+  });
+
   const linkMutation = useMutation({
     mutationFn: async (apply: boolean) => (await apiRequest("POST", "/api/companies/link-existing", { apply })).json() as Promise<LinkReport>,
     onSuccess: (r) => {
@@ -126,6 +143,11 @@ export default function Companies() {
             {canImportExport && unlinkedWithName > 0 && (
               <Button variant="outline" onClick={() => linkMutation.mutate(false)} disabled={linkMutation.isPending} data-testid="button-link-companies">
                 <Link2 className="w-4 h-4 mr-2" />Створити компанії з клієнтів ({unlinkedWithName})
+              </Button>
+            )}
+            {canImportExport && unlinkedWithName === 0 && (contactSync?.contactsToCreate ?? 0) > 0 && (
+              <Button variant="outline" onClick={() => setSyncOpen(true)} data-testid="button-sync-contacts">
+                <Users className="w-4 h-4 mr-2" />Перенести контакти в компанії ({contactSync!.contactsToCreate})
               </Button>
             )}
             <Button variant="outline" onClick={() => ensureAccess() && downloadCSV(`companies_${stamp()}.csv`, exportRows())} data-testid="button-export-companies">
@@ -192,6 +214,22 @@ export default function Companies() {
           </tbody>
         </table>
       </Card>
+
+      <Dialog open={syncOpen} onOpenChange={setSyncOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Перенести контакти в компанії</DialogTitle></DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p>Основний контакт кожного клієнта стане контактною особою його компанії. Буде додано: <b>{contactSync?.contactsToCreate ?? 0}</b>.</p>
+            <p className="text-muted-foreground">Людей, які вже є в компанії (той самий ПІБ, телефон або email), не дублюємо. Самі клієнти, дати й історія не змінюються.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncOpen(false)}>Скасувати</Button>
+            <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} data-testid="button-apply-sync-contacts">
+              {syncMutation.isPending ? "Виконується…" : "Перенести"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!report} onOpenChange={(v) => { if (!v) setReport(null); }}>
         <DialogContent className="max-w-2xl">

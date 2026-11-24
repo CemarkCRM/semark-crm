@@ -56,6 +56,7 @@ export default function Leads() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("created_desc");
   const [hiddenColumns, setHiddenColumns] = useState<ColumnKey[]>(loadHiddenColumns);
   const show = (key: ColumnKey) => !hiddenColumns.includes(key);
@@ -76,6 +77,9 @@ export default function Leads() {
       if (stageFilter !== "all" && l.stage !== stageFilter) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (cityFilter !== "all" && l.city !== cityFilter) return false;
+      // «Без компанії»: приватні особи та ті, чия компанія ще невідома.
+      if (companyFilter === "none" && (l.companyId || l.company?.trim())) return false;
+      if (companyFilter === "with" && !l.companyId) return false;
       if (companyQ) {
         const companyMatch = (l.company ?? "").toLowerCase().startsWith(companyQ) || (l.company ?? "").toLowerCase().includes(companyQ);
         const contactMatch = [l.contactName, l.contactPhone, l.contactEmail].filter(Boolean).some((v) => String(v).toLowerCase().includes(companyQ));
@@ -93,7 +97,7 @@ export default function Leads() {
       const cmp = (a[key] ?? "").localeCompare(b[key] ?? "") || a.id - b.id;
       return dir === "asc" ? cmp : -cmp;
     });
-  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, sortBy]);
+  }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, companyFilter, sortBy]);
 
   // Заголовки українською; ці ж назви стовпців розуміє імпорт CSV.
   const exportRows = () => filtered.map((l) => ({
@@ -252,6 +256,14 @@ export default function Leads() {
             <SelectContent>
               <SelectItem value="all">Усі джерела</SelectItem>
               {Object.entries(sourceLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger data-testid="select-filter-company"><SelectValue placeholder="Компанія" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">З компанією і без</SelectItem>
+              <SelectItem value="with">Лише з компанією</SelectItem>
+              <SelectItem value="none">Без компанії (приватні особи)</SelectItem>
             </SelectContent>
           </Select>
           <Select value={cityFilter} onValueChange={setCityFilter}>
