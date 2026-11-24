@@ -22,6 +22,38 @@ export type User = typeof users.$inferSelect;
 // User without the password hash — safe to return to clients.
 export type SafeUser = Omit<User, "passwordHash">;
 
+// ─── Companies ───────────────────────────────────────────────────────────────
+// A company groups its clients (leads/deals) and contact persons.
+// leads.company / contacts.company keep the name as text for compatibility;
+// company_id is the real link and the server keeps both in sync.
+export const companies = sqliteTable("companies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  edrpou: text("edrpou"),
+  city: text("city"),
+  address: text("address"),
+  website: text("website"),
+  industry: text("industry"),
+  phone: text("phone"),
+  email: text("email"),
+  responsibleId: integer("responsible_id"),
+  notes: text("notes"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedById: integer("updated_by_id"),
+});
+
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  updatedById: true,
+}).extend({
+  name: z.string().trim().min(1, "Вкажіть назву компанії"),
+});
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Company = typeof companies.$inferSelect;
+
 // ─── Leads ───────────────────────────────────────────────────────────────────
 // Stages: new | contacted | qualified | proposal | negotiation | won | lost
 export const leads = sqliteTable("leads", {
@@ -30,6 +62,7 @@ export const leads = sqliteTable("leads", {
   stage: text("stage").notNull().default("new"),
   source: text("source").notNull().default("website"),
   company: text("company"),
+  companyId: integer("company_id"),
   contactName: text("contact_name").notNull(),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
@@ -55,6 +88,7 @@ export type Lead = typeof leads.$inferSelect;
 export const contacts = sqliteTable("contacts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   company: text("company").notNull(),
+  companyId: integer("company_id"),
   fullName: text("full_name").notNull(),
   phone: text("phone"),
   email: text("email"),

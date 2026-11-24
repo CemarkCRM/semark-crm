@@ -95,21 +95,22 @@ export default function Leads() {
     });
   }, [leads, search, companyContactFilter, stageFilter, sourceFilter, cityFilter, sortBy]);
 
+  // Заголовки українською; ці ж назви стовпців розуміє імпорт CSV.
   const exportRows = () => filtered.map((l) => ({
-      id: l.id,
-      title: l.title,
-      stage: stageLabels[l.stage] ?? l.stage,
-      source: sourceLabels[l.source] ?? l.source,
-      company: l.company ?? "",
-      contactName: l.contactName,
-      contactPhone: l.contactPhone ?? "",
-      contactEmail: l.contactEmail ?? "",
-      city: l.city ?? "",
-      budget: l.budget ?? "",
-      responsible: l.responsibleId ? userMap.get(l.responsibleId)?.fullName ?? "" : "",
-      createdAt: l.createdAt,
-      updatedAt: l.updatedAt,
-      notes: l.notes ?? "",
+      "ID": l.id,
+      "Назва": l.title,
+      "Стадія": stageLabels[l.stage] ?? l.stage,
+      "Джерело": sourceLabels[l.source] ?? l.source,
+      "Компанія": l.company ?? "",
+      "Контакт": l.contactName,
+      "Телефон": l.contactPhone ?? "",
+      "Email": l.contactEmail ?? "",
+      "Місто": l.city ?? "",
+      "Бюджет": l.budget ?? "",
+      "Відповідальний": l.responsibleId ? userMap.get(l.responsibleId)?.fullName ?? "" : "",
+      "Дата створення": l.createdAt,
+      "Оновлено": l.updatedAt,
+      "Нотатки": l.notes ?? "",
     }));
 
   const ensureImportExportAccess = () => {
@@ -167,8 +168,8 @@ export default function Leads() {
     const userByName = new Map(users.map((u) => [u.fullName.trim().toLowerCase(), u.id]));
 
     const payload = rows.map((r) => {
-      const stageRaw = (r.stage || r.stage_code || "new").trim();
-      const sourceRaw = (r.source || "website").trim();
+      const stageRaw = (r.stage || r.stage_code || r["Стадія"] || "new").trim();
+      const sourceRaw = (r.source || r["Джерело"] || "website").trim();
       const stage = stageInverse[stageRaw.toLowerCase()] || stageRaw || "new";
       const source = sourceInverse[sourceRaw.toLowerCase()] || sourceRaw || "website";
       return {
@@ -328,7 +329,9 @@ export default function Leads() {
                   <div className="text-xs text-muted-foreground">#{l.id}</div>
                 </td>
                 {show("contact") && <td className="px-3 py-2">
-                  <div>{l.company ?? "—"}</div>
+                  <div>{l.companyId
+                    ? <Link href={`/companies/${l.companyId}`} className="hover:underline" data-testid={`link-lead-company-${l.id}`}>{l.company}</Link>
+                    : (l.company ?? "—")}</div>
                   <div className="text-xs text-muted-foreground">{l.contactName}</div>
                   <div className="text-xs text-muted-foreground">{l.contactPhone ?? "телефон не вказано"}</div>
                   <div className="text-xs text-muted-foreground">{l.contactEmail ?? "email не вказано"}</div>

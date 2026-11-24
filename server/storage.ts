@@ -1,6 +1,7 @@
 import {
-  users, leads, contacts, equipment, sales, repairs, rentals, tasks, events,
+  users, companies, leads, contacts, equipment, sales, repairs, rentals, tasks, events,
   type User, type InsertUser,
+  type Company, type InsertCompany,
   type Lead, type InsertLead,
   type Contact, type InsertContact,
   type Equipment, type InsertEquipment,
@@ -13,7 +14,7 @@ import {
 import type { SafeUser } from "@shared/schema";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, inArray } from "drizzle-orm";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { MIN_PASSWORD_LENGTH } from "@shared/access";
 
@@ -140,6 +141,22 @@ sqlite.exec(`
     contact_id INTEGER,
     created_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    edrpou TEXT,
+    city TEXT,
+    address TEXT,
+    website TEXT,
+    industry TEXT,
+    phone TEXT,
+    email TEXT,
+    responsible_id INTEGER,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by_id INTEGER
+  );
   CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     lead_id INTEGER NOT NULL,
@@ -168,6 +185,12 @@ for (const table of ["equipment", "sales", "repairs", "rentals", "tasks"]) {
   ensureColumn(table, "updated_at", "TEXT");
 }
 ensureColumn("users", "password_hash", "TEXT");
+// Link clients and contacts to companies. Adding the columns does not change
+// any existing rows: linking existing data is a separate, explicit action.
+for (const table of ["leads", "contacts"]) {
+  ensureColumn(table, "company_id", "INTEGER");
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_company_id ON ${table}(company_id)`);
+}
 
 export const db = drizzle(sqlite);
 
@@ -207,6 +230,93 @@ function addLeadEventForContact(leadId: number | null | undefined, contactId: nu
   touchLead(leadId, t);
 }
 
+// ─── Company name matching ───────────────────────────────────────────────────
+// Exact key: same name ignoring case, extra spaces and quote styles.
+export function companyKey(name?: string | null): string {
+  return (name ?? "")
+    .toLowerCase()
+    .replace(/[«»"'`„“”‘’ʼ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Loose key for spotting probable duplicates ("ТОВ Альфа" vs "Альфа"):
+// also drops legal forms and punctuation. Never used to merge automatically.
+const LEGAL_FORMS = [
+  "товариство з обмеженою відповідальністю", "приватне підприємство", "фізична особа підприємець",
+  "фізична особа-підприємець", "публічне акціонерне товариство", "приватне акціонерне товариство",
+  "акціонерне товариство", "тзов", "тов", "фоп", "прат", "пат", "пп", "ат", "дп", "кп", "ооо", "чп", "llc", "ltd",
+];
+const NON_ALNUM = new RegExp("[^\\p{L}\\p{N}]+", "gu");
+export function companyLooseKey(name?: string | null): string {
+  let k = companyKey(name);
+  for (const form of LEGAL_FORMS) {
+    k = k.replace(new RegExp(`(^|[\\s,.])${form}(?=$|[\\s,.])`, "g"), " ");
+  }
+  return k.replace(NON_ALNUM, " ").replace(/\s+/g, " ").trim();
+}
+
+function findCompanyByName(name: string): Company | undefined {
+  const key = companyKey(name);
+  if (!key) return undefined;
+  return db.select().from(companies).all().find((c) => companyKey(c.name) === key);
+}
+
+function ensureCompanyId(name: string, actorId: number, t: string, extra: Partial<InsertCompany> = {}): number {
+  const existing = findCompanyByName(name);
+  if (existing) return existing.id;
+  const created = db.insert(companies).values({
+    ...extra, name: name.trim(), createdAt: t, updatedAt: t, updatedById: actorId,
+  }).returning().get() as Company;
+  return created.id;
+}
+
+// Keeps company (text) and companyId consistent on lead/contact writes.
+function resolveCompanyLink<T extends { company?: string | null; companyId?: number | null }>(
+  data: T, actorId: number, t: string, extra: Partial<InsertCompany> = {},
+): T {
+  const out = { ...data };
+  const hasName = Object.prototype.hasOwnProperty.call(data, "company");
+  const hasId = Object.prototype.hasOwnProperty.call(data, "companyId");
+  if (hasId && data.companyId) {
+    const c = db.select().from(companies).where(eq(companies.id, data.companyId)).get();
+    if (!c) throw new Error("Компанію не знайдено");
+    // An explicit name that differs from the selected company wins (user typed a new one).
+    if (hasName && data.company && companyKey(data.company) !== companyKey(c.name)) {
+      out.companyId = ensureCompanyId(data.company, actorId, t, extra);
+      out.company = db.select().from(companies).where(eq(companies.id, out.companyId)).get()!.name;
+    } else {
+      out.company = c.name;
+    }
+  } else if (hasName) {
+    const name = (data.company ?? "").trim();
+    out.companyId = name ? ensureCompanyId(name, actorId, t, extra) : null;
+    // Use the company's own spelling so the same company is written one way.
+    out.company = out.companyId
+      ? db.select().from(companies).where(eq(companies.id, out.companyId)).get()!.name
+      : null;
+  }
+  return out;
+}
+
+export type CompanyLinkReport = {
+  companiesToCreate: number;
+  existingCompaniesUsed: number;
+  leadsToLink: number;
+  contactsToLink: number;
+  leadsWithoutCompany: number;
+  possibleDuplicates: { names: string[]; leads: number }[];
+  applied: boolean;
+};
+
+function mostCommon<T>(values: T[]): T | undefined {
+  const counts = new Map<T, number>();
+  for (const v of values) if (v != null && v !== "") counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best: T | undefined; let n = 0;
+  for (const [v, c] of Array.from(counts.entries())) if (c > n) { best = v; n = c; }
+  return best;
+}
+
 export const storage = {
   // Users — never expose password hashes to callers.
   listUsers: (): SafeUser[] => db.select().from(users).all().map((u) => sanitizeUser(u)!),
@@ -235,6 +345,137 @@ export const storage = {
     return sanitizeUser(user)!;
   },
 
+  // Companies
+  listCompanies: () => db.select().from(companies).orderBy(asc(companies.name)).all(),
+  getCompany: (id: number) => db.select().from(companies).where(eq(companies.id, id)).get(),
+  createCompany: (data: InsertCompany, actorId = DEFAULT_ACTOR_ID): Company => {
+    if (findCompanyByName(data.name)) throw new Error("Компанія з такою назвою вже є");
+    const t = now();
+    return db.insert(companies).values({ ...data, name: data.name.trim(), createdAt: t, updatedAt: t, updatedById: actorId }).returning().get() as Company;
+  },
+  updateCompany: (id: number, data: Partial<InsertCompany>, actorId = DEFAULT_ACTOR_ID): Company | undefined => {
+    const existing = db.select().from(companies).where(eq(companies.id, id)).get();
+    if (!existing) return undefined;
+    if (data.name !== undefined) {
+      const other = findCompanyByName(data.name);
+      if (other && other.id !== id) throw new Error("Компанія з такою назвою вже є. Щоб звести їх в одну, скористайтеся «Об'єднати».");
+    }
+    const t = now();
+    return sqlite.transaction(() => {
+      const updated = db.update(companies).set({ ...data, updatedAt: t, updatedById: actorId }).where(eq(companies.id, id)).returning().get() as Company;
+      if (data.name !== undefined && updated.name !== existing.name) {
+        // Rename: keep the name copies on linked clients and contacts in sync.
+        db.update(leads).set({ company: updated.name }).where(eq(leads.companyId, id)).run();
+        db.update(contacts).set({ company: updated.name }).where(eq(contacts.companyId, id)).run();
+      }
+      return updated;
+    })();
+  },
+  deleteCompany: (id: number) => {
+    const linked = db.select().from(leads).where(eq(leads.companyId, id)).all().length
+      + db.select().from(contacts).where(eq(contacts.companyId, id)).all().length;
+    if (linked > 0) throw new Error("У компанії є клієнти або контакти. Спершу перенесіть їх або об'єднайте компанію з іншою.");
+    return db.delete(companies).where(eq(companies.id, id)).run();
+  },
+  // Moves all clients and contacts of `sourceId` into `targetId`, then removes the source.
+  mergeCompanies: (sourceId: number, targetId: number, actorId = DEFAULT_ACTOR_ID): Company => {
+    if (sourceId === targetId) throw new Error("Оберіть іншу компанію");
+    const source = db.select().from(companies).where(eq(companies.id, sourceId)).get();
+    const target = db.select().from(companies).where(eq(companies.id, targetId)).get();
+    if (!source || !target) throw new Error("Компанію не знайдено");
+    const t = now();
+    return sqlite.transaction(() => {
+      const movedLeads = db.select().from(leads).where(eq(leads.companyId, sourceId)).all();
+      db.update(leads).set({ companyId: targetId, company: target.name }).where(eq(leads.companyId, sourceId)).run();
+      db.update(contacts).set({ companyId: targetId, company: target.name }).where(eq(contacts.companyId, sourceId)).run();
+      // Fill empty fields of the target from the source, never overwrite.
+      const fill: Record<string, unknown> = {};
+      for (const k of ["edrpou", "city", "address", "website", "industry", "phone", "email", "responsibleId", "notes"] as const) {
+        if ((target as any)[k] == null || (target as any)[k] === "") fill[k] = (source as any)[k];
+      }
+      const updated = db.update(companies).set({ ...fill, updatedAt: t, updatedById: actorId }).where(eq(companies.id, targetId)).returning().get() as Company;
+      db.delete(companies).where(eq(companies.id, sourceId)).run();
+      for (const l of movedLeads) {
+        addLeadEvent(l.id, "system", `Компанію «${source.name}» об'єднано з «${target.name}»: ${actorName(actorId)}`, actorId, t);
+      }
+      return updated;
+    })();
+  },
+  // Creates companies from the names already typed in clients/contacts and links them.
+  // dryRun=true only reports what would happen and changes nothing.
+  linkExistingCompanies: (dryRun: boolean, actorId = DEFAULT_ACTOR_ID): CompanyLinkReport => {
+    const unlinkedLeads = db.select().from(leads).all().filter((l) => !l.companyId);
+    const unlinkedContacts = db.select().from(contacts).all().filter((c) => !c.companyId);
+    const groups = new Map<string, { names: string[]; leads: Lead[]; contacts: Contact[] }>();
+    const group = (key: string) => {
+      if (!groups.has(key)) groups.set(key, { names: [], leads: [], contacts: [] });
+      return groups.get(key)!;
+    };
+    let leadsWithoutCompany = 0;
+    for (const l of unlinkedLeads) {
+      const key = companyKey(l.company);
+      if (!key) { leadsWithoutCompany++; continue; }
+      const g = group(key); g.names.push(l.company!.trim()); g.leads.push(l);
+    }
+    for (const c of unlinkedContacts) {
+      const key = companyKey(c.company);
+      if (!key) continue;
+      const g = group(key); g.names.push(c.company.trim()); g.contacts.push(c);
+    }
+    const existingByKey = new Map(db.select().from(companies).all().map((c) => [companyKey(c.name), c]));
+    let companiesToCreate = 0; let existingCompaniesUsed = 0;
+    for (const key of Array.from(groups.keys())) {
+      if (existingByKey.has(key)) existingCompaniesUsed++; else companiesToCreate++;
+    }
+
+    // Probable duplicates among all company names (existing + to be created).
+    const loose = new Map<string, Map<string, { name: string; leads: number }>>();
+    const addLoose = (key: string, name: string, leadCount: number) => {
+      const lk = companyLooseKey(name);
+      if (!lk) return;
+      if (!loose.has(lk)) loose.set(lk, new Map());
+      const m = loose.get(lk)!;
+      const prev = m.get(key);
+      m.set(key, { name: prev?.name ?? name, leads: (prev?.leads ?? 0) + leadCount });
+    };
+    for (const [key, c] of Array.from(existingByKey.entries())) addLoose(key, c.name, 0);
+    for (const [key, g] of Array.from(groups.entries())) addLoose(key, existingByKey.get(key)?.name ?? mostCommon(g.names)!, g.leads.length);
+    const possibleDuplicates = Array.from(loose.values())
+      .filter((m) => m.size > 1)
+      .map((m) => ({ names: Array.from(m.values()).map((v) => v.name), leads: Array.from(m.values()).reduce((a, v) => a + v.leads, 0) }))
+      .sort((a, b) => b.leads - a.leads);
+
+    const report: CompanyLinkReport = {
+      companiesToCreate,
+      existingCompaniesUsed,
+      leadsToLink: Array.from(groups.values()).reduce((a, g) => a + g.leads.length, 0),
+      contactsToLink: Array.from(groups.values()).reduce((a, g) => a + g.contacts.length, 0),
+      leadsWithoutCompany,
+      possibleDuplicates,
+      applied: false,
+    };
+    if (dryRun) return report;
+
+    const t = now();
+    sqlite.transaction(() => {
+      for (const [key, g] of Array.from(groups.entries())) {
+        let company = existingByKey.get(key);
+        if (!company) {
+          company = db.insert(companies).values({
+            name: mostCommon(g.names)!,
+            city: mostCommon(g.leads.map((l) => l.city?.trim() || null)) ?? null,
+            responsibleId: mostCommon(g.leads.map((l) => l.responsibleId)) ?? null,
+            createdAt: t, updatedAt: t, updatedById: actorId,
+          }).returning().get() as Company;
+        }
+        // Only the link is set; client names, dates and history stay as they are.
+        if (g.leads.length) db.update(leads).set({ companyId: company.id, company: company.name }).where(inArray(leads.id, g.leads.map((l) => l.id))).run();
+        if (g.contacts.length) db.update(contacts).set({ companyId: company.id, company: company.name }).where(inArray(contacts.id, g.contacts.map((c) => c.id))).run();
+      }
+    })();
+    return { ...report, applied: true };
+  },
+
   // Leads
   listLeads: () => db.select().from(leads).orderBy(desc(leads.updatedAt)).all(),
   getLead: (id: number) => db.select().from(leads).where(eq(leads.id, id)).get(),
@@ -245,6 +486,7 @@ export const storage = {
   ): Lead => {
     const created = dates.createdAt || now();
     const updated = dates.updatedAt || created;
+    data = resolveCompanyLink(data, actorId, now(), { city: data.city ?? null, responsibleId: data.responsibleId ?? null });
     const lead = db.insert(leads).values({ ...data, createdAt: created, updatedAt: updated, updatedById: actorId }).returning().get() as Lead;
     db.insert(events).values({
       leadId: lead.id, type: "system", message: "Клієнта створено", authorId: actorId, createdAt: created,
@@ -255,6 +497,7 @@ export const storage = {
     const existing = db.select().from(leads).where(eq(leads.id, id)).get();
     if (!existing) return undefined;
     const t = now();
+    data = resolveCompanyLink(data, actorId, t, { city: data.city ?? existing.city, responsibleId: data.responsibleId ?? existing.responsibleId });
     if (data.stage && data.stage !== existing.stage) {
       db.insert(events).values({
         leadId: id, type: "stage_change",
@@ -277,10 +520,14 @@ export const storage = {
   // Contacts
   listContacts: () => db.select().from(contacts).orderBy(asc(contacts.company), asc(contacts.fullName)).all(),
   listContactsByCompany: (company: string) => db.select().from(contacts).where(eq(contacts.company, company)).orderBy(asc(contacts.fullName)).all(),
+  listContactsByCompanyId: (companyId: number) => db.select().from(contacts).where(eq(contacts.companyId, companyId)).orderBy(asc(contacts.fullName)).all(),
+  listLeadsByCompanyId: (companyId: number) => db.select().from(leads).where(eq(leads.companyId, companyId)).orderBy(desc(leads.updatedAt)).all(),
   createContact: (data: InsertContact, actorId = DEFAULT_ACTOR_ID): Contact => {
     const t = now();
+    data = resolveCompanyLink(data, actorId, t) as InsertContact;
+    if (!data.company) throw new Error("Вкажіть компанію");
     const contact = db.insert(contacts).values({ ...data, createdAt: t, updatedAt: t, updatedById: actorId }).returning().get() as Contact;
-    const companyLeads = db.select().from(leads).where(eq(leads.company, contact.company)).all();
+    const companyLeads = db.select().from(leads).where(eq(leads.companyId, contact.companyId!)).all();
     for (const lead of companyLeads) {
       addLeadEventForContact(lead.id, contact.id, "system", `Додано контакт до компанії ${contact.company}: ${contact.fullName}${contact.phone ? `, ${contact.phone}` : ""}`, actorId, t);
     }
@@ -290,8 +537,12 @@ export const storage = {
     const existing = db.select().from(contacts).where(eq(contacts.id, id)).get();
     if (!existing) return undefined;
     const t = now();
+    data = resolveCompanyLink(data, actorId, t);
+    if (Object.prototype.hasOwnProperty.call(data, "company") && !data.company) throw new Error("Вкажіть компанію");
     const updated = db.update(contacts).set({ ...data, updatedAt: t, updatedById: actorId }).where(eq(contacts.id, id)).returning().get() as Contact;
-    const companyLeads = db.select().from(leads).where(eq(leads.company, updated.company)).all();
+    const companyLeads = updated.companyId
+      ? db.select().from(leads).where(eq(leads.companyId, updated.companyId)).all()
+      : db.select().from(leads).where(eq(leads.company, updated.company)).all();
     for (const lead of companyLeads) {
       addLeadEventForContact(lead.id, updated.id, "system", `Контакт відредаговано: ${updated.fullName}`, actorId, t);
     }
