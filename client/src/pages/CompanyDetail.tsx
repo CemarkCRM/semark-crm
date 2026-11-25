@@ -195,6 +195,7 @@ export default function CompanyDetail() {
           />
         </div>
         {leads.length === 0 ? <div className="text-sm text-muted-foreground">Угод ще немає</div> : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs uppercase text-muted-foreground">
               <tr>
@@ -217,6 +218,7 @@ export default function CompanyDetail() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 

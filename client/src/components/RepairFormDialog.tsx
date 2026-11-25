@@ -10,6 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { repairStatusLabels } from "@/lib/i18n";
 import { useCurrentUser } from "@/lib/currentUser";
+import EquipmentPicker from "@/components/EquipmentPicker";
 import type { Equipment, Lead, Repair, User } from "@shared/schema";
 
 export default function RepairFormDialog({
@@ -86,10 +87,7 @@ export default function RepairFormDialog({
           )}
           <div className="col-span-2">
             <Label>Обладнання</Label>
-            <Select value={form.equipmentId} onValueChange={(v) => setForm({ ...form, equipmentId: v })}>
-              <SelectTrigger data-testid="select-repair-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
-              <SelectContent>{equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}</SelectContent>
-            </Select>
+            <EquipmentPicker testId="select-repair-equipment" items={equipment} value={form.equipmentId} onChange={(v) => setForm({ ...form, equipmentId: v })} />
           </div>
           <div className="col-span-2">
             <Label>Причина звернення</Label>

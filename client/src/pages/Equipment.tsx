@@ -19,6 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/lib/currentUser";
 import { Plus, Download, Pencil, Upload, AlertTriangle } from "lucide-react";
+import EquipmentPicker from "@/components/EquipmentPicker";
 import type { Equipment } from "@shared/schema";
 
 const isLegacyType = (type: string) => !equipmentTypeLabels[type];
@@ -114,13 +115,7 @@ function EquipmentDialog({ trigger, item, catalog, defaultKind = "catalog" }: {
           {form.kind === "unit" ? (
             <div>
               <Label>Модель з каталогу</Label>
-              <Select value={form.catalogId || "none"} onValueChange={(v) => pickCatalog(v === "none" ? "" : v)}>
-                <SelectTrigger data-testid="select-eq-catalog"><SelectValue placeholder="Оберіть модель" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— без прив'язки —</SelectItem>
-                  {catalog.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.model}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <EquipmentPicker testId="select-eq-catalog" items={catalog} value={form.catalogId} onChange={pickCatalog} placeholder="Оберіть модель" allowNone />
             </div>
           ) : <div />}
           {field("Бренд", "brand", { placeholder: "FidLASER / FidMARKER / FidCLEAN / Automator" })}
