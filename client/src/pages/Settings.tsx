@@ -107,7 +107,7 @@ export default function Settings() {
       />
 
       <div className="grid lg:grid-cols-[1fr_420px] gap-4">
-        <Card className="overflow-hidden">
+        <Card className="overflow-x-auto">
           <div className="p-4 border-b border-border">
             <h2 className="font-semibold text-sm">Користувачі CRM</h2>
             <p className="text-xs text-muted-foreground mt-1">Поточний користувач: {currentUser?.fullName ?? "не обрано"}</p>

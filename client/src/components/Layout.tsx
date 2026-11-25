@@ -3,10 +3,11 @@ import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard, Users, ListChecks, Wrench, CalendarRange, Boxes,
-  Search, Moon, Sun, Building2, Settings, LogOut,
+  Search, Moon, Sun, Building2, Settings, LogOut, Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/currentUser";
 import { roleLabels } from "@/lib/i18n";
@@ -35,11 +36,38 @@ function useTheme() {
   return { theme, toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")) };
 }
 
+function NavLinks({ location, onNavigate }: { location: string; onNavigate?: () => void }) {
+  return (
+    <nav className="flex-1 p-2 space-y-0.5">
+          {nav.map((it) => {
+            const Icon = it.icon;
+            const active = location === it.href || (it.href !== "/" && location.startsWith(it.href));
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                data-testid={it.testId}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm hover-elevate",
+                  active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground/80"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{it.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+  );
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { theme, toggle } = useTheme();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: leads = [] } = useQuery<Lead[]>({ queryKey: ["/api/leads"] });
   const { data: tasks = [] } = useQuery<Task[]>({ queryKey: ["/api/tasks"] });
@@ -62,7 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
-      <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar flex flex-col">
+      <aside className="hidden md:flex w-60 shrink-0 border-r border-sidebar-border bg-sidebar flex-col">
         <div className="h-14 flex items-center gap-2 px-4 border-b border-sidebar-border">
           <div className="w-8 h-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
             S
@@ -72,26 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="text-[11px] text-muted-foreground">ТОВ Семарк</div>
           </div>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
-          {nav.map((it) => {
-            const Icon = it.icon;
-            const active = location === it.href || (it.href !== "/" && location.startsWith(it.href));
-            return (
-              <Link
-                key={it.href}
-                href={it.href}
-                data-testid={it.testId}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm hover-elevate",
-                  active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground/80"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{it.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <NavLinks location={location} />
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-2 px-1 py-1">
             <Building2 className="w-4 h-4 text-muted-foreground" />
@@ -104,7 +113,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border flex items-center gap-3 px-4 bg-background/80 backdrop-blur">
+        <header className="h-14 border-b border-border flex items-center gap-2 sm:gap-3 px-3 sm:px-4 bg-background/80 backdrop-blur">
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="md:hidden shrink-0" aria-label="Меню" data-testid="button-mobile-menu">
+                <Menu className="w-4 h-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+              <SheetTitle className="h-14 flex items-center px-4 border-b border-sidebar-border text-sm">Semark CRM</SheetTitle>
+              <NavLinks location={location} onNavigate={() => setMenuOpen(false)} />
+            </SheetContent>
+          </Sheet>
           <div className="relative flex-1 max-w-xl">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -156,7 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
-          <div className="text-right leading-tight" data-testid="text-current-user">
+          <div className="hidden sm:block text-right leading-tight" data-testid="text-current-user">
             <div className="text-sm font-medium">{currentUser?.fullName}</div>
             <div className="text-[11px] text-muted-foreground">{currentUser ? (roleLabels[currentUser.role] ?? currentUser.role) : ""}</div>
           </div>
@@ -179,7 +199,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <LogOut className="w-4 h-4" />
           </Button>
         </header>
-        <main className="flex-1 min-w-0 overflow-x-hidden p-6">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );
