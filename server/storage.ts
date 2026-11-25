@@ -17,6 +17,7 @@ import Database from "better-sqlite3";
 import { eq, desc, asc, inArray } from "drizzle-orm";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { MIN_PASSWORD_LENGTH } from "@shared/access";
+import { modelKey, type CatalogRow } from "@shared/catalogImport";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -192,6 +193,26 @@ for (const table of ["leads", "contacts"]) {
   sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_company_id ON ${table}(company_id)`);
 }
 
+// Catalog fields for equipment (task from Продажі 24.11.2026). Existing rows
+// keep their data: they become kind = 'unit' and keep their old type until
+// someone picks a new one.
+for (const [column, definition] of [
+  ["kind", "TEXT NOT NULL DEFAULT 'unit'"],
+  ["catalog_id", "INTEGER"],
+  ["brand", "TEXT"],
+  ["power_w", "TEXT"],
+  ["work_field", "TEXT"],
+  ["source_internal", "TEXT"],
+  ["execution", "TEXT"],
+  ["price_vat", "INTEGER"],
+  ["price_status", "TEXT"],
+  ["price_date", "TEXT"],
+  ["availability", "TEXT"],
+] as const) {
+  ensureColumn("equipment", column, definition);
+}
+sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_equipment_kind_model ON equipment(kind, model)`);
+
 export const db = drizzle(sqlite);
 
 const now = () => new Date().toISOString();
@@ -228,6 +249,68 @@ function addLeadEventForContact(leadId: number | null | undefined, contactId: nu
     createdAt: t,
   }).run();
   touchLead(leadId, t);
+}
+
+// ─── Equipment catalog import ────────────────────────────────────────────────
+// Key: «Модель (артикул)» among catalog records. A repeated import updates
+// prices, status, date and the other file fields instead of adding duplicates.
+// Catalog records that are not in the file are left as they are.
+const CATALOG_FIELDS = [
+  "name", "type", "brand", "powerW", "workField", "sourceInternal", "execution",
+  "price", "priceVat", "priceStatus", "priceDate", "availability", "serial", "rentalDayPrice", "notes",
+] as const;
+
+export type CatalogImportResult = {
+  dryRun: boolean;
+  created: number;
+  updated: number;
+  unchanged: number;
+  priceChanged: number;
+  notInFile: number;
+  errors: string[];
+  changes: Array<{ model: string; action: "created" | "updated"; fields: string[] }>;
+};
+
+function importCatalog(rows: CatalogRow[], actorId: number, dryRun: boolean): CatalogImportResult {
+  const result: CatalogImportResult = { dryRun, created: 0, updated: 0, unchanged: 0, priceChanged: 0, notInFile: 0, errors: [], changes: [] };
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const k = modelKey(r.model);
+    if (seen.has(k)) result.errors.push(`Артикул «${r.model}» повторюється у файлі`);
+    seen.add(k);
+  }
+  if (result.errors.length) return result;
+
+  const existing = db.select().from(equipment).where(eq(equipment.kind, "catalog")).all();
+  const byKey = new Map(existing.map((e) => [modelKey(e.model), e]));
+  result.notInFile = existing.filter((e) => !seen.has(modelKey(e.model))).length;
+
+  const t = now();
+  const apply = () => {
+    for (const r of rows) {
+      const current = byKey.get(modelKey(r.model));
+      if (!current) {
+        result.created++;
+        result.changes.push({ model: r.model, action: "created", fields: [] });
+        if (!dryRun) {
+          db.insert(equipment).values({ ...r, kind: "catalog", status: "available", updatedAt: t, updatedById: actorId }).run();
+        }
+        continue;
+      }
+      const fields = CATALOG_FIELDS.filter((f) => ((current as any)[f] ?? null) !== ((r as any)[f] ?? null));
+      if (!fields.length) { result.unchanged++; continue; }
+      result.updated++;
+      if (fields.includes("price") || fields.includes("priceVat")) result.priceChanged++;
+      result.changes.push({ model: r.model, action: "updated", fields });
+      if (!dryRun) {
+        const patch: Record<string, unknown> = {};
+        for (const f of fields) patch[f] = (r as any)[f];
+        db.update(equipment).set({ ...patch, updatedAt: t, updatedById: actorId }).where(eq(equipment.id, current.id)).run();
+      }
+    }
+  };
+  if (dryRun) apply(); else sqlite.transaction(apply)();
+  return result;
 }
 
 // ─── Company name matching ───────────────────────────────────────────────────
@@ -629,6 +712,7 @@ export const storage = {
   updateEquipment: (id: number, data: Partial<InsertEquipment>, actorId = DEFAULT_ACTOR_ID) =>
     db.update(equipment).set({ ...data, updatedAt: now(), updatedById: actorId }).where(eq(equipment.id, id)).returning().get(),
   deleteEquipment: (id: number) => db.delete(equipment).where(eq(equipment.id, id)).run(),
+  importCatalog: (rows: CatalogRow[], actorId = DEFAULT_ACTOR_ID, dryRun = true) => importCatalog(rows, actorId, dryRun),
 
   // Sales
   listSales: () => db.select().from(sales).orderBy(desc(sales.soldAt)).all(),

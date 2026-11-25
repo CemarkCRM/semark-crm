@@ -84,7 +84,7 @@ export default function SaleFormDialog({
             >
               <SelectTrigger data-testid="select-sale-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
               <SelectContent>
-                {equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.name} — {e.model}</SelectItem>)}
+                {equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

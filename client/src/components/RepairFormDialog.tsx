@@ -88,7 +88,7 @@ export default function RepairFormDialog({
             <Label>Обладнання</Label>
             <Select value={form.equipmentId} onValueChange={(v) => setForm({ ...form, equipmentId: v })}>
               <SelectTrigger data-testid="select-repair-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
-              <SelectContent>{equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.name} — {e.model}</SelectItem>)}</SelectContent>
+              <SelectContent>{equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="col-span-2">

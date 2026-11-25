@@ -71,13 +71,56 @@ export const priorityBadge = (p: string) =>
     urgent: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
   }[p] || "bg-muted");
 
+// 9 типів каталогу (рішення Людмили 24.11.2026).
 export const equipmentTypeLabels: Record<string, string> = {
-  fiber: "Волоконний",
-  co2: "CO2 лазер",
-  marker: "Маркер",
-  laser: "Лазер",
-  accessory: "Аксесуар",
+  fiber_marker: "Волоконний лазерний маркер",
+  mopa_marker: "MOPA лазерний маркер",
+  uv_marker: "UV лазерний маркер",
+  co2_marker: "CO2 лазерний маркер",
+  co2_cutter: "CO2 лазерний верстат",
+  laser_cleaning: "Лазерне очищення",
+  dot_peen: "Ударно-точковий маркер",
+  option: "Опція",
+  consumable: "Витратні та запчастини",
 };
+
+// Старі типи: лише для показу записів, яким ще не вибрали новий тип.
+export const legacyEquipmentTypeLabels: Record<string, string> = {
+  fiber: "Волоконний (старий тип)",
+  co2: "CO2 лазер (старий тип)",
+  marker: "Маркер (старий тип)",
+  laser: "Лазер (старий тип)",
+  accessory: "Аксесуар (старий тип)",
+};
+
+export function equipmentTypeLabel(type: string): string {
+  return equipmentTypeLabels[type] ?? legacyEquipmentTypeLabels[type] ?? type;
+}
+
+export const equipmentKindLabels: Record<string, string> = {
+  catalog: "Модель у каталозі",
+  unit: "Машина з серійним №",
+};
+
+export const priceStatusLabels: Record<string, string> = {
+  approved: "погоджено",
+  clarify: "[уточнити]",
+  on_request: "за запитом",
+};
+
+export function priceStatusBadge(status?: string | null): string {
+  if (status === "approved") return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  if (status === "clarify") return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+  if (status === "on_request") return "bg-sky-500/15 text-sky-700 dark:text-sky-400";
+  return "bg-muted text-muted-foreground";
+}
+
+// "2026-11-09" → "09.11.2026"
+export function formatPriceDate(iso?: string | null): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-");
+  return d && m && y ? `${d}.${m}.${y}` : iso;
+}
 
 export const equipmentStatusLabels: Record<string, string> = {
   available: "Доступне",
