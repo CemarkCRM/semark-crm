@@ -10,6 +10,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { rentalStatusLabels } from "@/lib/i18n";
 import { useCurrentUser } from "@/lib/currentUser";
+import EquipmentPicker from "@/components/EquipmentPicker";
 import type { Equipment, Lead, Rental } from "@shared/schema";
 
 export default function RentalFormDialog({
@@ -79,16 +80,15 @@ export default function RentalFormDialog({
           )}
           <div className="col-span-2">
             <Label>Обладнання</Label>
-            <Select
+            <EquipmentPicker
+              testId="select-rental-equipment"
+              items={equipment.filter((e) => e.kind !== "catalog" || String(e.id) === form.equipmentId)}
               value={form.equipmentId}
-              onValueChange={(v) => {
+              onChange={(v) => {
                 const eq = equipment.find((e) => e.id === Number(v));
                 setForm({ ...form, equipmentId: v, pricePerDay: form.pricePerDay || (eq?.rentalDayPrice ? String(eq.rentalDayPrice) : "") });
               }}
-            >
-              <SelectTrigger data-testid="select-rental-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
-              <SelectContent>{equipment.filter((e) => e.kind !== "catalog" || String(e.id) === form.equipmentId).map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}</SelectContent>
-            </Select>
+            />
           </div>
           <div>
             <Label>Початок</Label>

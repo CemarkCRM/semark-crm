@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/lib/currentUser";
+import EquipmentPicker from "@/components/EquipmentPicker";
 import type { Equipment, Lead, Sale } from "@shared/schema";
 
 export default function SaleFormDialog({
@@ -75,18 +76,13 @@ export default function SaleFormDialog({
           )}
           <div className="col-span-2">
             <Label>Обладнання</Label>
-            <Select
-              value={form.equipmentId}
-              onValueChange={(v) => {
+            <EquipmentPicker
+              testId="select-sale-equipment" items={equipment} value={form.equipmentId}
+              onChange={(v) => {
                 const eq = equipment.find((e) => e.id === Number(v));
                 setForm({ ...form, equipmentId: v, price: form.price || (eq ? String(eq.price) : "") });
               }}
-            >
-              <SelectTrigger data-testid="select-sale-equipment"><SelectValue placeholder="Оберіть обладнання" /></SelectTrigger>
-              <SelectContent>
-                {equipment.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.model}{e.serial ? ` · S/N ${e.serial}` : ""} — {e.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            />
           </div>
           <div>
             <Label>Ціна, грн</Label>
