@@ -9,6 +9,7 @@
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "backup": "node script/backup.cjs",
+    "reset-password": "node script/reset-password.cjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
